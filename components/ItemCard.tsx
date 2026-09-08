@@ -1,8 +1,10 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
 import type { Item } from "@/lib/types";
 import { StoreBadge } from "./StoreBadge";
+import { HonorPrompt } from "./HonorPrompt";
 
 function formatPrice(price: number | null) {
   if (price == null) return null;
@@ -15,9 +17,13 @@ function formatPrice(price: number | null) {
 }
 
 export function ItemCard({ item }: { item: Item }) {
-  const purchased = item.qty_purchased >= item.qty_needed;
-  const partial = !purchased && item.qty_purchased > 0;
-  const remaining = Math.max(item.qty_needed - item.qty_purchased, 0);
+  // Local adjustment so an honor-system tap reflects immediately.
+  const [delta, setDelta] = useState(0);
+  const [clickedBuy, setClickedBuy] = useState(false);
+  const qtyPurchased = Math.min(item.qty_purchased + delta, item.qty_needed);
+  const purchased = qtyPurchased >= item.qty_needed;
+  const partial = !purchased && qtyPurchased > 0;
+  const remaining = Math.max(item.qty_needed - qtyPurchased, 0);
   const isAmazon = item.source === "amazon";
   const price = formatPrice(item.price);
 
@@ -95,7 +101,7 @@ export function ItemCard({ item }: { item: Item }) {
             {item.qty_needed > 1 && !purchased && (
               <span className="eyebrow text-[0.58rem] text-stone">
                 {partial
-                  ? `${item.qty_purchased} of ${item.qty_needed} gifted`
+                  ? `${qtyPurchased} of ${item.qty_needed} gifted`
                   : `Wants ${item.qty_needed}`}
               </span>
             )}
@@ -125,10 +131,19 @@ export function ItemCard({ item }: { item: Item }) {
                 href={item.buy_url}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => setClickedBuy(true)}
                 className="eyebrow block w-full rounded-sm border border-cognac/60 py-[calc(0.75rem-1px)] text-center text-[0.65rem] text-cognac transition-colors hover:bg-cognac hover:text-cream"
               >
                 Buy at {item.store}
               </a>
+            )}
+            {!isAmazon && (
+              <HonorPrompt
+                itemId={item.id}
+                visible={clickedBuy && !purchased}
+                onPurchased={() => setDelta((d) => d + 1)}
+                onUndo={() => setDelta((d) => d - 1)}
+              />
             )}
             {remaining > 1 && (
               <span className="sr-only">{remaining} still needed</span>

@@ -6,10 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "import:amazon": "tsx scripts/import-amazon.ts",
+    "test:parse": "tsx scripts/test-parse.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
+    "cheerio": "^1.2.0",
     "next": "16.3.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -23,6 +26,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
+    "tsx": "^4.23.13",
     "typescript": "^5"
   }
 }
