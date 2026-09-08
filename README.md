@@ -37,19 +37,25 @@ admin panel.
 
 ## 3. Hourly Amazon sync
 
-`.github/workflows/sync-amazon.yml` calls the sync endpoint on a schedule.
-In your GitHub repo, add these **Settings → Secrets and variables →
-Actions** repo secrets:
+Two schedules call the same endpoint, `/api/sync`, which fetches the public
+registry page, parses names, prices, images and purchased counts, and upserts
+them. Every run is logged to the `sync_runs` table and shown in the admin.
 
-- `SITE_URL` — your deployed site's base URL (e.g. `https://your-site.vercel.app`)
-- `SYNC_SECRET` — same value as the Vercel env var above
+1. **Supabase pg_cron (already configured).** A `cron.job` named
+   `amazon-registry-sync` runs at minute 7 of every hour and calls
+   `/api/sync` with the `SYNC_SECRET`. The fetch happens from Vercel's
+   servers, which Amazon sometimes answers with a 403. Those runs log an
+   error and change nothing.
+2. **GitHub Actions (`.github/workflows/sync-amazon.yml`).** Runs at
+   minute 23 of every hour. The runner fetches the registry page itself and
+   posts the HTML to `/api/sync`, so the request to Amazon comes from a
+   different IP pool. Needs one repo secret, **Settings → Secrets and
+   variables → Actions → `SYNC_SECRET`** (same value as on Vercel).
+   `SITE_URL` is optional and defaults to the production URL in the file.
 
-To trigger a sync manually, use any of:
-
-- The workflow's **Run workflow** button (`workflow_dispatch`) in the
-  Actions tab.
-- The **Sync now** button in `/admin`.
-- `curl -H "Authorization: Bearer $SYNC_SECRET" https://<site>/api/sync`
+Manual options: the admin **Sync now** button, the workflow's **Run
+workflow** button, or
+`curl -H "Authorization: Bearer $SYNC_SECRET" https://<site>/api/sync`.
 
 ## 4. One-time import
 

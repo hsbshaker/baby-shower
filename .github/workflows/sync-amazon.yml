@@ -1,37 +1,72 @@
-# Calls the deployed /api/sync endpoint on an hourly schedule to pull in
-# the latest quantities/prices/items from the Amazon registry.
+# Hourly Amazon registry sync, GitHub Actions path.
 #
-# Requires two repo secrets (Settings -> Secrets and variables -> Actions):
-#   SITE_URL     the deployed site's base URL, e.g. https://your-site.vercel.app
-#   SYNC_SECRET  same value as the SYNC_SECRET env var configured on the site
+# The site's own scheduled sync (Supabase pg_cron -> /api/sync) fetches
+# Amazon from Vercel's servers, which Amazon sometimes refuses with a 403.
+# This workflow fetches the public registry page from a GitHub runner
+# instead and hands the HTML to /api/sync, which parses and upserts it.
 #
-# Can also be triggered manually from the Actions tab (workflow_dispatch).
+# Repo secrets (Settings -> Secrets and variables -> Actions):
+#   SYNC_SECRET  required to post — same value as the SYNC_SECRET env var on Vercel
+#   SITE_URL     optional — defaults to the production URL below
+#
+# Without SYNC_SECRET the workflow still runs the fetch and reports whether
+# Amazon served the page, so it doubles as a connectivity check.
 name: Sync Amazon registry
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '23 * * * *'
   workflow_dispatch: {}
+
+env:
+  REGISTRY_URL: https://www.amazon.com/baby-reg/shezia-shaker-haseeb-shaker-february-2027-fairfax/9MNGG3PT13ZD
+  DEFAULT_SITE_URL: https://baby-shower-amber-pi.vercel.app
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Call /api/sync
+      - name: Fetch the public registry page
+        id: fetch
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            code="$(curl -sS --compressed -L -o registry.html -w '%{http_code}' \
+              -A 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36' \
+              -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
+              -H 'Accept-Language: en-US,en;q=0.9' \
+              -H 'Upgrade-Insecure-Requests: 1' \
+              "${REGISTRY_URL}?language=en-US" || echo 000)"
+            echo "attempt ${attempt}: HTTP ${code}, $(wc -c < registry.html) bytes"
+            if [ "${code}" = "200" ] && grep -q 'br-vv-item-card' registry.html; then
+              echo "ok=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep $((attempt * 10))
+          done
+          echo "::error::Amazon did not serve the registry page (last HTTP ${code})"
+          exit 1
+
+      - name: Post the page to /api/sync
+        if: steps.fetch.outputs.ok == 'true'
         env:
-          SITE_URL: ${{ secrets.SITE_URL }}
           SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
+          SITE_URL: ${{ secrets.SITE_URL }}
         run: |
           set -euo pipefail
-
-          response="$(curl --fail-with-body -sS \
+          if [ -z "${SYNC_SECRET}" ]; then
+            echo "::notice::SYNC_SECRET secret not set; fetched the page but skipped the sync."
+            exit 0
+          fi
+          site="${SITE_URL:-$DEFAULT_SITE_URL}"
+          jq -Rs '{html: .}' registry.html > payload.json
+          response="$(curl --fail-with-body -sS -X POST \
             -H "Authorization: Bearer ${SYNC_SECRET}" \
-            "${SITE_URL}/api/sync")"
-
+            -H 'Content-Type: application/json' \
+            --data-binary @payload.json \
+            "${site}/api/sync")"
           echo "${response}" | jq .
-
-          status="$(echo "${response}" | jq -r '.status')"
-          if [ "${status}" = "error" ]; then
+          if [ "$(echo "${response}" | jq -r '.status')" = "error" ]; then
             echo "::error::Sync reported status=error"
             exit 1
           fi

@@ -141,28 +141,43 @@ export function guessCategory(name: string): Category {
  * row to sync_runs (best-effort; a logging failure doesn't affect the
  * returned result).
  */
-export async function runAmazonSync(): Promise<SyncResult> {
+export interface SyncOptions {
+  /**
+   * Pre-fetched registry page HTML. When provided, the network fetch is
+   * skipped entirely — used by the GitHub Actions path, where the runner
+   * fetches Amazon (from a different IP pool than Vercel) and posts the
+   * page to /api/sync.
+   */
+  html?: string;
+}
+
+export async function runAmazonSync(options: SyncOptions = {}): Promise<SyncResult> {
   const startedAt = new Date();
-  const result = await computeSync();
+  const result = await computeSync(options);
   const finishedAt = new Date();
   await logSyncRun(result, startedAt, finishedAt);
   return result;
 }
 
-async function computeSync(): Promise<SyncResult> {
+async function computeSync(options: SyncOptions): Promise<SyncResult> {
   try {
-    const url = process.env.AMAZON_REGISTRY_URL;
-    if (!url) {
-      return {
-        status: 'skipped',
-        itemsSeen: 0,
-        itemsUpdated: 0,
-        itemsAdded: 0,
-        message: 'AMAZON_REGISTRY_URL not configured',
-      };
+    let fetched: PageFetchResult;
+    if (options.html) {
+      fetched = { ok: true, html: options.html, message: '' };
+    } else {
+      const url = process.env.AMAZON_REGISTRY_URL;
+      if (!url) {
+        return {
+          status: 'skipped',
+          itemsSeen: 0,
+          itemsUpdated: 0,
+          itemsAdded: 0,
+          message: 'AMAZON_REGISTRY_URL not configured',
+        };
+      }
+      fetched = await fetchAllRegistryPages(url, fetch);
     }
 
-    const fetched = await fetchAllRegistryPages(url, fetch);
     if (!fetched.ok) {
       console.error('runAmazonSync:', fetched.message);
       return {
