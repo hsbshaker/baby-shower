@@ -30,17 +30,76 @@ const tone: Record<string, string> = {
   skipped: "text-stone",
 };
 
-export function SyncPanel({ runs }: { runs: SyncRunRow[] }) {
+export function SyncPanel({
+  runs,
+  bookmarklet,
+  registryUrl,
+}: {
+  runs: SyncRunRow[];
+  bookmarklet?: string | null;
+  registryUrl?: string | null;
+}) {
   const [result, setResult] = useState<SyncResult | null>(null);
   const [pending, start] = useTransition();
+  const [copied, setCopied] = useState(false);
+
+  const copyBookmarklet = async () => {
+    if (!bookmarklet) return;
+    try {
+      await navigator.clipboard.writeText(bookmarklet);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard unavailable; the drag link still works */
+    }
+  };
 
   return (
     <section className="rounded-sm border border-linen bg-ivory">
+      {bookmarklet && (
+        <div className="border-b border-linen px-5 py-4">
+          <h2 className="eyebrow text-stone">Sync from your browser</h2>
+          <p className="mt-1 max-w-2xl text-[0.8rem] font-light leading-relaxed text-ink/70">
+            Amazon blocks automated requests from servers, so the most reliable sync
+            runs from you. Drag the button below to your bookmarks bar once. Then
+            open your{" "}
+            {registryUrl ? (
+              <a
+                href={registryUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-navy underline underline-offset-2"
+              >
+                Amazon registry
+              </a>
+            ) : (
+              "Amazon registry"
+            )}{" "}
+            and click the bookmark. It sends that page here and updates every item.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <span
+              // A javascript: href must be emitted as raw HTML; React refuses them.
+              dangerouslySetInnerHTML={{
+                __html: `<a href="${bookmarklet.replace(/"/g, "&quot;")}" draggable="true" onclick="return false" class="eyebrow inline-flex cursor-grab items-center gap-2 rounded-sm border border-brass/60 bg-cream px-4 py-2.5 text-[0.62rem] text-saddle" title="Drag me to your bookmarks bar">↞ Sync Baby Registry</a>`,
+              }}
+            />
+            <button
+              type="button"
+              onClick={copyBookmarklet}
+              className="text-[0.75rem] font-light text-stone underline-offset-4 hover:text-navy hover:underline"
+            >
+              {copied ? "Copied" : "or copy the bookmark link"}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
         <div>
-          <h2 className="eyebrow text-stone">Amazon sync</h2>
+          <h2 className="eyebrow text-stone">Scheduled sync</h2>
           <p className="mt-1 text-[0.8rem] font-light text-ink/70">
-            Runs hourly. Pulls new items and purchased counts from the public registry.
+            Runs hourly from the server. Works only when Amazon serves the page to it.
           </p>
         </div>
         <button

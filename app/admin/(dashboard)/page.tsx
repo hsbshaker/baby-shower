@@ -5,9 +5,26 @@ import { ItemRow } from "@/components/admin/ItemRow";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * One-click sync from the admin's own browser: run on the Amazon registry
+ * page, it posts that page's HTML to /api/sync. Amazon refuses requests from
+ * cloud IPs, so this is the reliable path. The secret lives only in the
+ * admin's bookmark.
+ */
+function buildBookmarklet(): string | null {
+  const secret = process.env.SYNC_SECRET;
+  const site = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!secret || !site) return null;
+  const endpoint = `${site.replace(/\/$/, "")}/api/sync`;
+  const code = `(async()=>{if(!/amazon\\./.test(location.hostname)){alert('Open your Amazon registry page first, then click this bookmark.');return}window.scrollTo(0,document.body.scrollHeight);await new Promise(r=>setTimeout(r,1500));try{const r=await fetch(${JSON.stringify(endpoint)},{method:'POST',headers:{'Authorization':'Bearer ${secret}','Content-Type':'application/json'},body:JSON.stringify({html:document.documentElement.outerHTML})});const j=await r.json();alert('Registry sync: '+(j.status||r.status)+'\\n'+(j.message||j.error||''))}catch(e){alert('Sync failed: '+e)}})();`;
+  return `javascript:${encodeURIComponent(code)}`;
+}
+
 export default async function AdminHome() {
   const [items, runs] = await Promise.all([getAdminItems(), recentSyncRuns()]);
   const gifted = items.filter((i) => i.qty_purchased >= i.qty_needed).length;
+  const bookmarklet = buildBookmarklet();
+  const registryUrl = process.env.AMAZON_REGISTRY_URL ?? null;
 
   return (
     <div className="space-y-10">
@@ -26,7 +43,7 @@ export default async function AdminHome() {
         </Link>
       </div>
 
-      <SyncPanel runs={runs} />
+      <SyncPanel runs={runs} bookmarklet={bookmarklet} registryUrl={registryUrl} />
 
       <section>
         <div className="flex items-baseline justify-between">

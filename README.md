@@ -31,30 +31,37 @@ admin panel.
    | `ADMIN_PASSWORD` | Password for `/admin`. Generate with `openssl rand -hex 24`. |
    | `SYNC_SECRET` | Shared secret required to call `/api/sync`. Generate with `openssl rand -hex 24`. |
    | `AMAZON_REGISTRY_URL` | Public Amazon registry URL to sync items from. |
+| `SCRAPER_API_KEY` | Optional. ScraperAPI key for a hands-off scheduled sync (see §3). |
    | `NEXT_PUBLIC_SITE_URL` | Public base URL of the deployed site. |
 
 3. Deploy.
 
-## 3. Hourly Amazon sync
+## 3. Amazon sync
 
-Two schedules call the same endpoint, `/api/sync`, which fetches the public
-registry page, parses names, prices, images and purchased counts, and upserts
-them. Every run is logged to the `sync_runs` table and shown in the admin.
+`/api/sync` parses the public registry page (names, prices, images,
+purchased counts) and upserts items. Every run is logged to `sync_runs` and
+shown in the admin. It accepts either a fetch it performs itself or a page
+posted to it as `{ "html": "..." }`.
 
-1. **Supabase pg_cron (already configured).** A `cron.job` named
-   `amazon-registry-sync` runs at minute 7 of every hour and calls
-   `/api/sync` with the `SYNC_SECRET`. The fetch happens from Vercel's
-   servers, which Amazon sometimes answers with a 403. Those runs log an
-   error and change nothing.
-2. **GitHub Actions (`.github/workflows/sync-amazon.yml`).** Runs at
-   minute 23 of every hour. The runner fetches the registry page itself and
-   posts the HTML to `/api/sync`, so the request to Amazon comes from a
-   different IP pool. Needs one repo secret, **Settings → Secrets and
-   variables → Actions → `SYNC_SECRET`** (same value as on Vercel).
-   `SITE_URL` is optional and defaults to the production URL in the file.
+**Amazon refuses requests from cloud IPs.** Vercel's servers and GitHub's
+runners both get a 403 bot page, so the scheduled paths below only succeed
+when Amazon happens to allow them. The reliable path is the bookmarklet.
 
-Manual options: the admin **Sync now** button, the workflow's **Run
-workflow** button, or
+1. **Bookmarklet (recommended).** In `/admin`, drag **Sync Baby Registry**
+   to your bookmarks bar. Open your Amazon registry page and click it: it
+   scrolls to load every item, then posts the page to `/api/sync`. Takes
+   about two seconds. Do this after gifts arrive, or whenever you add items.
+2. **Supabase pg_cron (configured).** `cron.job` `amazon-registry-sync`
+   calls `/api/sync` at minute 7 of every hour from Vercel. Logs an error
+   and changes nothing when Amazon blocks it.
+3. **GitHub Actions** (`.github/workflows/sync-amazon.yml`). Fetches the
+   page from a runner at minute 23 of every hour and posts it. Needs the
+   repo secret `SYNC_SECRET`. Currently also blocked by Amazon.
+4. **ScraperAPI (optional, hands-off).** Set `SCRAPER_API_KEY` on Vercel
+   and the scheduled sync fetches Amazon through ScraperAPI's residential
+   IPs. Their free tier covers roughly one fetch per hour.
+
+Manual options: the admin **Sync now** button, or
 `curl -H "Authorization: Bearer $SYNC_SECRET" https://<site>/api/sync`.
 
 ## 4. One-time import

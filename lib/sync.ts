@@ -70,9 +70,16 @@ export async function fetchAllRegistryPages(
     // Amazon intermittently answers 403/503 to automated traffic. One
     // short retry recovers most of those; anything beyond that waits for
     // the next scheduled run.
+    // Amazon refuses requests from cloud IPs (Vercel, GitHub runners). When a
+    // SCRAPER_API_KEY is configured, route the request through ScraperAPI,
+    // which fetches from a residential IP. Otherwise try directly.
+    const scraperKey = process.env.SCRAPER_API_KEY;
+    const target = scraperKey
+      ? `https://api.scraperapi.com/?api_key=${encodeURIComponent(scraperKey)}&country_code=us&url=${encodeURIComponent(url)}`
+      : url;
     for (let attempt = 0; attempt < 2; attempt++) {
       if (attempt > 0) await new Promise((r) => setTimeout(r, 4000));
-      response = await fetchImpl(url, {
+      response = await fetchImpl(target, {
         headers: {
           'User-Agent': USER_AGENT,
           Accept:
