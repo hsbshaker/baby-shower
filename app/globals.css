@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy: #14213d;
+  --color-navy-deep: #0d1526;
+  --color-navy-soft: #24344f;
+  --color-cream: #f3eee4;
+  --color-ivory: #faf7f1;
+  --color-linen: #e6ddcc;
+  --color-cognac: #7a4a2a;
+  --color-saddle: #5a3620;
+  --color-brass: #b3925c;
+  --color-ink: #1d1a15;
+  --color-stone: #837a6e;
+
+  --font-display: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
+  --font-sans: var(--font-jost), "Jost", "Helvetica Neue", Arial, sans-serif;
+
+  --shadow-card: 0 1px 2px rgba(29, 26, 21, 0.04), 0 12px 32px -16px rgba(29, 26, 21, 0.18);
+  --shadow-card-hover: 0 1px 2px rgba(29, 26, 21, 0.05), 0 24px 48px -20px rgba(20, 33, 61, 0.28);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Small-caps, letterspaced label — the stationery voice used throughout */
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+/* Double hairline rule, like an engraved invitation */
+.rule-double {
+  height: 5px;
+  border-top: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  opacity: 0.5;
+}
+
+/* Subtle linen weave on cream surfaces */
+.linen {
+  background-image:
+    repeating-linear-gradient(0deg, rgba(29, 26, 21, 0.018) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(29, 26, 21, 0.018) 0 1px, transparent 1px 3px);
+}
+
+/* Fine pinstripe on navy surfaces */
+.pinstripe {
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.035) 0 1px,
+    transparent 1px 7px
+  );
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
