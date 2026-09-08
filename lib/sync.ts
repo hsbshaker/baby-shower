@@ -66,20 +66,31 @@ export async function fetchAllRegistryPages(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetchImpl(url, {
-      headers: {
-        'User-Agent': USER_AGENT,
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      cache: 'no-store',
-      signal: controller.signal,
-    });
+    let response: Response | null = null;
+    // Amazon intermittently answers 403/503 to automated traffic. One
+    // short retry recovers most of those; anything beyond that waits for
+    // the next scheduled run.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 4000));
+      response = await fetchImpl(url, {
+        headers: {
+          'User-Agent': USER_AGENT,
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Upgrade-Insecure-Requests': '1',
+        },
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      if (response.ok || (response.status !== 403 && response.status !== 503)) break;
+    }
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       return {
         ok: false,
         html: '',
-        message: `Registry fetch failed: HTTP ${response.status}`,
+        message: `Registry fetch failed: HTTP ${response?.status ?? 'no response'}`,
       };
     }
 

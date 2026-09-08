@@ -1,4 +1,5 @@
-import 'server-only';
+// No 'server-only' guard here: the import CLI (scripts/import-amazon.ts)
+// also uses this module. Never import createServerClient from client code.
 import { createClient } from '@supabase/supabase-js';
 
 /**
