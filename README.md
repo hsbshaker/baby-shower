@@ -55,13 +55,12 @@ when Amazon happens to allow them. The reliable path is the bookmarklet.
    "Purchased" filter (Amazon hides purchased items from the default list),
    and posts all of it to `/api/sync`. The admin page updates on its own.
    Do this after gifts arrive, or whenever you add items.
-2. **Supabase pg_cron (configured).** `cron.job` `amazon-registry-sync`
-   calls `/api/sync` at minute 7 of every hour from Vercel. Logs an error
-   and changes nothing when Amazon blocks it.
-3. **GitHub Actions** (`.github/workflows/sync-amazon.yml`). Fetches the
-   page from a runner at minute 23 of every hour and posts it. Needs the
-   repo secret `SYNC_SECRET`. Currently also blocked by Amazon.
-4. **ScraperAPI (optional, hands-off).** Set `SCRAPER_API_KEY` on Vercel
+2. **Scheduled syncs (disabled).** Both the Supabase pg_cron job and the
+   GitHub Actions schedule are off, since Amazon refuses cloud IPs and they
+   only produced error rows. The workflow keeps a manual **Run workflow**
+   button; the pg_cron job can be re-created from the SQL in the git history
+   if Amazon ever changes its mind.
+3. **ScraperAPI (optional, hands-off).** Set `SCRAPER_API_KEY` on Vercel
    and the scheduled sync fetches Amazon through ScraperAPI's residential
    IPs. Their free tier covers roughly one fetch per hour.
 

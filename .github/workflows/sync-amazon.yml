@@ -13,9 +13,9 @@
 # Amazon served the page, so it doubles as a connectivity check.
 name: Sync Amazon registry
 
+# Manual only: Amazon refuses GitHub's runners too, so the hourly schedule
+# is disabled. Run it from the Actions tab if you want to try again.
 on:
-  schedule:
-    - cron: '23 * * * *'
   workflow_dispatch: {}
 
 env:
