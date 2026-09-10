@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { useState } from "react";
 import type { Item } from "@/lib/types";
-import { StoreBadge } from "./StoreBadge";
 import { HonorPrompt } from "./HonorPrompt";
 
 function formatPrice(price: number | null) {
@@ -60,10 +59,6 @@ export function ItemCard({ item }: { item: Item }) {
             <span className="font-display text-6xl italic text-linen">S</span>
           </div>
         )}
-
-        <div className="absolute left-3 top-3">
-          <StoreBadge store={item.store} />
-        </div>
 
         {purchased && (
           <div className="absolute inset-x-0 bottom-3 flex justify-center">
@@ -133,7 +128,7 @@ export function ItemCard({ item }: { item: Item }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setClickedBuy(true)}
-                className="eyebrow block w-full rounded-sm border border-cognac/60 py-[calc(0.75rem-1px)] text-center text-[0.65rem] text-cognac transition-colors hover:bg-cognac hover:text-cream"
+                className="eyebrow block w-full rounded-sm bg-navy py-3 text-center text-[0.65rem] text-cream transition-colors hover:bg-navy-deep"
               >
                 Buy at {item.store}
               </a>
