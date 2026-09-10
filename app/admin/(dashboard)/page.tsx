@@ -14,9 +14,23 @@ export const dynamic = "force-dynamic";
 function buildBookmarklet(): string | null {
   const secret = process.env.SYNC_SECRET;
   const site = process.env.NEXT_PUBLIC_SITE_URL;
-  if (!secret || !site) return null;
+  const registryUrl = process.env.AMAZON_REGISTRY_URL;
+  if (!secret || !site || !registryUrl) return null;
   const endpoint = `${site.replace(/\/$/, "")}/api/sync`;
-  const code = `(async()=>{if(!/amazon\\./.test(location.hostname)){alert('Open your Amazon registry page first, then click this bookmark.');return}window.scrollTo(0,document.body.scrollHeight);await new Promise(r=>setTimeout(r,1500));try{const r=await fetch(${JSON.stringify(endpoint)},{method:'POST',headers:{'Authorization':'Bearer ${secret}','Content-Type':'application/json'},body:JSON.stringify({html:document.documentElement.outerHTML})});const j=await r.json();alert('Registry sync: '+(j.status||r.status)+'\\n'+(j.message||j.error||''))}catch(e){alert('Sync failed: '+e)}})();`;
+  // Signed-in owners see a different registry page than guests, and the
+  // parser targets the guest view. So from any amazon.com page, fetch the
+  // public registry URL without cookies (the guest view), and only fall
+  // back to the current page's HTML if that fails.
+  const code = [
+    "(async()=>{",
+    "if(!/amazon\\./.test(location.hostname)){alert('Open Amazon first, then click this bookmark.');return}",
+    `const post=async h=>{const r=await fetch(${JSON.stringify(endpoint)},{method:'POST',headers:{'Authorization':'Bearer ${secret}','Content-Type':'application/json'},body:JSON.stringify({html:h})});return r.json()};`,
+    "let j=null;",
+    `try{const p=await fetch(${JSON.stringify(registryUrl)},{credentials:'omit',cache:'no-store'});if(p.ok){j=await post(await p.text())}}catch(e){}`,
+    "if(!j||j.status!=='ok'){try{window.scrollTo(0,document.body.scrollHeight);await new Promise(r=>setTimeout(r,1500));j=await post(document.documentElement.outerHTML)}catch(e){alert('Sync failed: '+e);return}}",
+    "alert('Registry sync: '+(j.status||'error')+'\\n'+(j.message||j.error||''))",
+    "})();",
+  ].join("");
   return `javascript:${encodeURIComponent(code)}`;
 }
 
