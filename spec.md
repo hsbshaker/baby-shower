@@ -29,7 +29,7 @@ This revision replaces the baseline PRD after a pressure-test review. Implementi
 | Reservation | Reserve → confirm → 24h expiry | Same shape, 72h fixed expiry. No nudges, click logs, or reconciliation in V1. |
 | Private event gate | Unspecified | Hero visible (title, hosts, date); everything else locked. Fixed rule, `noindex`. |
 | Pricing | Placeholder | $49 one-time, pay to publish. Real price shown on the mocked gate from day one. |
-| Co-host permissions | Two "if allowed by final UX" punts | Resolved: all operational edits including announcements, text, and images. No AI or design generation. |
+| Co-host permissions | Two "if allowed by final UX" punts | Near-parity with owner: content, guests, RSVP, registry, communications, direct design controls, redesign, and concept selection. Owner-only: publish, billing, co-host management, delete/ownership. |
 | Post-event | Passed state | Unchanged. No cancel toggle; a host edits the date to the past. No refunds, no ownership transfer. |
 | Growth | Unspecified | Guest site carries a tasteful "made with" footer line. The guest site is the referral surface. |
 
@@ -285,41 +285,45 @@ Implementing agents must **not** add these unless explicitly requested later:
 
 There are no additional personas in MVP. The three roles below are complete.
 
+Owner and co-host have **near-parity** on event management. Do not divide them into a "design host" and an "operations host." The only owner-only actions are account- and ownership-sensitive.
+
 ### 6.1 Owner
 
-The owner created the event. Owner can:
+The owner created the event. Owner can do everything, including:
 
-- create the event and enter the design prompt;
+- create the event and enter the initial design prompt;
 - upload inspiration;
 - generate, redesign, and select concepts;
-- publish;
-- manage event details, guests, RSVP configuration, registry, co-hosts;
-- send reminders/announcements;
-- change basic styling using direct controls;
+- publish (payment is tied to publish);
+- manage event details, guests, RSVP configuration, registry, communications;
+- change styling using direct controls;
 - control privacy/access;
+- manage co-hosts;
 - delete/archive the event;
-- handle billing.
+- handle billing and, if ever added, ownership transfer.
 
 ### 6.2 Co-host
 
-Invited by the owner. Co-host can do **all operational work**:
+Invited by the owner. Co-host can do **everything except the owner-only actions below**:
 
 - edit event details, text, and images;
 - manage guest list and import CSV;
-- manage RSVP settings and questions; view responses;
+- manage RSVP settings and questions; view and manage responses;
 - manage external registries, native items, and the cash fund card;
-- send reminders/announcements.
+- send reminders/announcements;
+- use direct design controls (colors, typography pairing, section order and visibility);
+- generate redesign concepts before publish;
+- select concepts before publish, including from the gallery.
 
 Co-host **cannot**:
 
-- enter or change the design prompt;
-- generate, redesign, or select concepts;
-- use any AI design feature;
 - publish;
-- manage co-hosts, ownership, or billing;
-- delete the event.
+- manage billing/payment;
+- manage co-host access;
+- delete the event;
+- transfer ownership, if that is ever added.
 
-AI/design-generation controls do not appear for co-hosts.
+Co-hosts join after creation, so the initial prompt and initial generation are inherently the owner's. Everything after that is shared. Publishing is owner-only in MVP only because payment is tied to it; if co-hosts should be true operational equals, allow them to publish once the event has already passed the payment gate.
 
 ### 6.3 Guest
 
@@ -432,7 +436,7 @@ The three concepts must be materially different (§11.5).
 
 ### 7.9 Concept selection is the site
 
-The owner selects one concept. Selection **persists that concept's `DesignSpec`** as the event's active design and the renderer populates it with actual event data. There is no separate "generate the website" step. Sections 8.8 and 8.9 of the baseline are collapsed into this one action.
+The owner (or a co-host, after creation) selects one concept. Selection **persists that concept's `DesignSpec`** as the event's active design and the renderer populates it with actual event data. There is no separate "generate the website" step. Sections 8.8 and 8.9 of the baseline are collapsed into this one action.
 
 Initial sections: Hero, Event Details, RSVP, Registry. AI may add a very small number of optional informational content blocks derived from the prompt; the host can hide, edit, or reorder them.
 
@@ -444,15 +448,15 @@ Not exposed: arbitrary CSS; spacing controls; font upload; freeform canvas; drag
 
 ### 7.11 Redesign
 
-Before publish, the owner can choose **Try a different direction** as many times as backend limits allow (§10). The user never sees a credit count or a remaining-generations counter.
+Before publish, the owner or a co-host can choose **Try a different direction** as many times as backend limits allow (§10). The user never sees a credit count or a remaining-generations counter.
 
 Flow:
 
-1. Owner optionally enters feedback ("Less country club, more cozy winter estate.").
+1. Owner or co-host optionally enters feedback ("Less country club, more cozy winter estate.").
 2. Strong model uses the Event Identity, the current `DesignSpec`, the list of previously shown concept combinations, and the feedback.
 3. Three new concepts are generated. Previously shown hero-archetype + tonal-direction combinations are excluded by the backend, not just by the prompt, so repeated rounds do not cycle the same looks.
 4. The current design remains unchanged while the new concepts are reviewed.
-5. Owner selects a new concept or **Keep Current Design**.
+5. Owner or co-host selects a new concept or **Keep Current Design**.
 
 **Concept gallery.** Every concept ever generated for the event remains browsable and selectable. Concepts are small JSON specs rendered client-side, so retaining them is free. This gives the host "go back to round two's concept" without building a versioning system. Do not delete old concepts to honor the "no version history" non-goal; that non-goal refers to a history/rollback *system*, not to retained specs.
 
@@ -460,7 +464,7 @@ Flow:
 
 ### 7.12 Preview
 
-Owner previews the guest-facing site before publish. Mobile preview is primary; desktop preview may be available.
+Owner or co-host previews the guest-facing site before publish. Mobile preview is primary; desktop preview may be available.
 
 ### 7.13 Publish
 
@@ -1061,13 +1065,16 @@ GenerationRun {
 | Manage external registries, native items, cash fund | Yes | Yes | No |
 | Manage native item status | Yes | Yes | No |
 | Send reminders/announcements | Yes | Yes | No |
-| Enter/change design prompt | Yes | No | No |
-| Generate, redesign, select concepts | Yes | No | No |
+| Direct design controls (colors, typography, sections) | Yes | Yes | No |
+| Enter initial design prompt / initial generation | Yes | No (joins after creation) | No |
+| Generate redesign concepts (before publish) | Yes | Yes | No |
+| Select concepts, including from gallery (before publish) | Yes | Yes | No |
 | Publish | Yes | No | No |
 | Manage co-hosts | Yes | No | No |
-| Billing / ownership / delete | Yes | No | No |
+| Billing / payment | Yes | No | No |
+| Delete event / ownership transfer | Yes | No | No |
 
-No conditional entries. AI and design-generation controls are not rendered for co-hosts.
+Summary: **Owner** everything. **Co-host** everything except billing, co-host management, and delete/ownership-level actions (and publish in MVP, because payment is tied to it). **Guest** event, RSVP, and registry only.
 
 ---
 
@@ -1195,14 +1202,14 @@ The host should feel: "I described what I wanted and it basically built the even
 
 **Redesign**
 
-- [ ] Owner can redesign repeatedly before publish, with optional feedback.
+- [ ] Owner or co-host can redesign repeatedly before publish, with optional feedback.
 - [ ] Previously shown archetype + tonal combinations are excluded by the backend.
 - [ ] Current design unchanged during review; owner may keep current design.
 - [ ] All generated concepts remain browsable and selectable in a gallery.
 - [ ] No user-facing generation counters or credits.
 - [ ] Backend concurrency, per-event, per-account, and spend limits are configurable and enforced.
 - [ ] Every generation logged with cost and latency.
-- [ ] Co-host cannot access any generation or selection control.
+- [ ] Publish, billing, co-host management, and delete are not available to co-hosts.
 - [ ] Redesign and selection disabled after publish.
 
 **Manual editing**
@@ -1246,7 +1253,7 @@ The host should feel: "I described what I wanted and it basically built the even
 
 **Roles**
 
-- [ ] Owner invites co-host; co-host has all operational permissions and none of the AI/design/publish/billing permissions, with no conditional cases.
+- [ ] Owner invites co-host; co-host has every capability except publish, billing, co-host management, and delete/ownership, with no conditional cases.
 
 **Publishing**
 
