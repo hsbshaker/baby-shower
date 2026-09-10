@@ -242,6 +242,8 @@ async function computeSync(options: SyncOptions): Promise<SyncResult> {
       .maybeSingle();
     let nextSortOrder = (maxSortRow?.sort_order ?? -1) + 1;
 
+    const honorFloor = await recentHonorFloor(supabase);
+
     let itemsUpdated = 0;
     let itemsAdded = 0;
 
@@ -249,10 +251,13 @@ async function computeSync(options: SyncOptions): Promise<SyncResult> {
       const existing = existingByAmazonId.get(parsedItem.amazon_item_id);
 
       if (existing) {
+        // Amazon is the source of truth, but a guest's recent "I bought
+        // this" tap holds until Amazon catches up (or the hold expires).
+        const floor = Math.min(parsedItem.qty_needed, honorFloor.get(existing.id) ?? 0);
         const update: Partial<Item> = {
           price: parsedItem.price,
           qty_needed: parsedItem.qty_needed,
-          qty_purchased: parsedItem.qty_purchased,
+          qty_purchased: Math.max(parsedItem.qty_purchased, floor),
           buy_url: parsedItem.buy_url,
           asin: parsedItem.asin,
         };
@@ -314,6 +319,39 @@ async function logSyncRun(result: SyncResult, startedAt: Date, finishedAt: Date)
   } catch (err) {
     console.error('runAmazonSync: failed to write sync_runs row', err);
   }
+}
+
+/** How long a guest's honor mark outranks a lower count from Amazon. */
+const HONOR_HOLD_DAYS = 3;
+
+/**
+ * Per item, the number of honor-system marks made in the last
+ * HONOR_HOLD_DAYS that are newer than the last admin toggle on that item.
+ * An admin decision always wins over earlier guest marks. Never throws:
+ * on any error the floor is simply empty.
+ */
+async function recentHonorFloor(
+  supabase: ReturnType<typeof createServerClient>,
+): Promise<Map<string, number>> {
+  const floor = new Map<string, number>();
+  try {
+    const since = new Date(Date.now() - HONOR_HOLD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from('purchases')
+      .select('item_id, source, created_at')
+      .in('source', ['honor', 'admin'])
+      .gte('created_at', since)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    for (const row of data ?? []) {
+      if (row.source === 'admin') floor.set(row.item_id, 0);
+      else floor.set(row.item_id, (floor.get(row.item_id) ?? 0) + 1);
+    }
+  } catch (err) {
+    console.error('recentHonorFloor:', err);
+    floor.clear();
+  }
+  return floor;
 }
 
 /** ISO timestamp of the most recent successful sync, or null if none yet. */

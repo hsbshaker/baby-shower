@@ -122,6 +122,7 @@ export function ItemCard({ item }: { item: Item }) {
                 href={item.buy_url}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => setClickedBuy(true)}
                 className="eyebrow block w-full rounded-sm bg-navy py-3 text-center text-[0.65rem] text-cream transition-colors hover:bg-navy-deep"
               >
                 Buy on Amazon
@@ -137,14 +138,12 @@ export function ItemCard({ item }: { item: Item }) {
                 Buy at {item.store}
               </a>
             )}
-            {!isAmazon && (
-              <HonorPrompt
-                itemId={item.id}
-                visible={clickedBuy && !purchased}
-                onPurchased={() => setDelta((d) => d + 1)}
-                onUndo={() => setDelta((d) => d - 1)}
-              />
-            )}
+            <HonorPrompt
+              itemId={item.id}
+              visible={clickedBuy && !purchased}
+              onPurchased={() => setDelta((d) => d + 1)}
+              onUndo={() => setDelta((d) => d - 1)}
+            />
             {remaining > 1 && (
               <span className="sr-only">{remaining} still needed</span>
             )}

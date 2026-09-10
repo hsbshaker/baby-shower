@@ -65,6 +65,13 @@ when Amazon happens to allow them. The reliable path is the bookmarklet.
    and the scheduled sync fetches Amazon through ScraperAPI's residential
    IPs. Their free tier covers roughly one fetch per hour.
 
+**Honor marks and Amazon.** Guests get the "Did you buy this?" prompt after
+clicking Buy on any item, Amazon included. A guest's mark shows the gift as
+purchased immediately. On the next sync, Amazon's count is the source of
+truth, except that marks from the last 3 days hold even if Amazon still
+reports zero (so a purchase Amazon hasn't reflected yet doesn't flip back).
+An admin toggle in `/admin` overrides earlier guest marks on that item.
+
 Manual options: the admin **Sync now** button, or
 `curl -H "Authorization: Bearer $SYNC_SECRET" https://<site>/api/sync`.
 

@@ -69,11 +69,10 @@ export async function markPurchased(itemId: string): Promise<ActionResult> {
 
     if (itemError || !item) throw itemError ?? new Error('Item not found');
 
-    if (
-      item.source !== 'external' ||
-      !item.is_active ||
-      item.qty_purchased >= item.qty_needed
-    ) {
+    // Amazon items are welcome here too: an honor mark is the fastest signal
+    // that a gift was bought, and the next registry sync reconciles it
+    // (see the honor-floor logic in lib/sync.ts).
+    if (!item.is_active || item.qty_purchased >= item.qty_needed) {
       return { ok: false, message: 'This gift is already spoken for.' };
     }
 
