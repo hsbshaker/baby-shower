@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getAdminItems, recentSyncRuns } from "@/app/admin/actions";
+import { getAdminItems, lastSuccessfulSyncAt, recentSyncRuns } from "@/app/admin/actions";
 import { SyncPanel } from "@/components/admin/SyncPanel";
 import { ItemRow } from "@/components/admin/ItemRow";
 
@@ -21,7 +21,11 @@ function buildBookmarklet(): string | null {
 }
 
 export default async function AdminHome() {
-  const [items, runs] = await Promise.all([getAdminItems(), recentSyncRuns()]);
+  const [items, runs, lastSyncedAt] = await Promise.all([
+    getAdminItems(),
+    recentSyncRuns(),
+    lastSuccessfulSyncAt(),
+  ]);
   const gifted = items.filter((i) => i.qty_purchased >= i.qty_needed).length;
   const bookmarklet = buildBookmarklet();
   const registryUrl = process.env.AMAZON_REGISTRY_URL ?? null;
@@ -43,7 +47,12 @@ export default async function AdminHome() {
         </Link>
       </div>
 
-      <SyncPanel runs={runs} bookmarklet={bookmarklet} registryUrl={registryUrl} />
+      <SyncPanel
+        runs={runs}
+        lastSyncedAt={lastSyncedAt}
+        bookmarklet={bookmarklet}
+        registryUrl={registryUrl}
+      />
 
       <section>
         <div className="flex items-baseline justify-between">

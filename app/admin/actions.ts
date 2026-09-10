@@ -13,7 +13,12 @@ import {
   clearAdminCookie,
   verifyPassword,
 } from '@/lib/admin-auth';
-import { runAmazonSync, getRecentSyncRuns, type SyncResult } from '@/lib/sync';
+import {
+  runAmazonSync,
+  getRecentSyncRuns,
+  getLastSuccessfulSyncAt,
+  type SyncResult,
+} from '@/lib/sync';
 
 const NOT_CONFIGURED = { ok: false as const, error: 'Supabase is not configured.' };
 
@@ -380,4 +385,23 @@ export async function recentSyncRuns() {
   }
 
   return getRecentSyncRuns(5);
+}
+
+/**
+ * Polled by the admin while it waits for a bookmarklet sync to land.
+ * Returns the ISO time of the latest successful sync, or null.
+ */
+export async function lastSuccessfulSyncAt(): Promise<string | null> {
+  await requireAdmin();
+
+  if (!isSupabaseConfigured()) {
+    return null;
+  }
+
+  try {
+    return await getLastSuccessfulSyncAt();
+  } catch (err) {
+    console.error('lastSuccessfulSyncAt:', err);
+    return null;
+  }
 }

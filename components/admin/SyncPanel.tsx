@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { triggerSync } from "@/app/admin/actions";
-import type { SyncResult } from "@/lib/sync";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { lastSuccessfulSyncAt } from "@/app/admin/actions";
+import { relativeTime } from "@/lib/relative-time";
 
 export type SyncRunRow = {
   id: string;
@@ -13,6 +14,11 @@ export type SyncRunRow = {
   items_updated: number | null;
   message: string | null;
 };
+
+const POLL_MS = 4000;
+const WAIT_LIMIT_MS = 10 * 60 * 1000;
+
+type Phase = "idle" | "waiting" | "synced" | "gave-up";
 
 function fmt(ts: string | null) {
   if (!ts) return "—";
@@ -32,16 +38,70 @@ const tone: Record<string, string> = {
 
 export function SyncPanel({
   runs,
+  lastSyncedAt: initialLastSyncedAt,
   bookmarklet,
   registryUrl,
 }: {
   runs: SyncRunRow[];
+  lastSyncedAt: string | null;
   bookmarklet?: string | null;
   registryUrl?: string | null;
 }) {
-  const [result, setResult] = useState<SyncResult | null>(null);
-  const [pending, start] = useTransition();
+  const router = useRouter();
+  const [lastSyncedAt, setLastSyncedAt] = useState(initialLastSyncedAt);
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [now, setNow] = useState(() => Date.now());
   const [copied, setCopied] = useState(false);
+  const baseline = useRef<string | null>(initialLastSyncedAt);
+
+  // Keep "Last synced" honest while the page stays open.
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // While waiting, poll our own backend for a newer successful sync.
+  useEffect(() => {
+    if (phase !== "waiting") return;
+    let cancelled = false;
+    const startedAt = Date.now();
+
+    const tick = async () => {
+      if (cancelled) return;
+      try {
+        const latest = await lastSuccessfulSyncAt();
+        if (cancelled) return;
+        const base = baseline.current;
+        if (latest && (!base || new Date(latest) > new Date(base))) {
+          setLastSyncedAt(latest);
+          setNow(Date.now());
+          setPhase("synced");
+          router.refresh();
+          return;
+        }
+      } catch {
+        /* transient; try again next tick */
+      }
+      if (Date.now() - startedAt >= WAIT_LIMIT_MS) {
+        setPhase("gave-up");
+        return;
+      }
+      timer = setTimeout(tick, POLL_MS);
+    };
+
+    let timer = setTimeout(tick, POLL_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [phase, router]);
+
+  const openAndSync = () => {
+    if (!registryUrl) return;
+    baseline.current = lastSyncedAt;
+    window.open(registryUrl, "_blank", "noopener");
+    setPhase("waiting");
+  };
 
   const copyBookmarklet = async () => {
     if (!bookmarklet) return;
@@ -56,32 +116,79 @@ export function SyncPanel({
 
   return (
     <section className="rounded-sm border border-linen bg-ivory">
-      {bookmarklet && (
-        <div className="border-b border-linen px-5 py-4">
-          <h2 className="eyebrow text-stone">Sync from your browser</h2>
-          <p className="mt-1 max-w-2xl text-[0.8rem] font-light leading-relaxed text-ink/70">
-            Amazon blocks automated requests from servers, so the most reliable sync
-            runs from you. Drag the button below to your bookmarks bar once. Then
-            open your{" "}
-            {registryUrl ? (
-              <a
-                href={registryUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-navy underline underline-offset-2"
-              >
-                Amazon registry
-              </a>
-            ) : (
-              "Amazon registry"
-            )}{" "}
-            and click the bookmark. It sends that page here and updates every item.
+      <div className="px-5 py-5">
+        <h2 className="eyebrow text-stone">Amazon registry sync</h2>
+        <p className="mt-2 font-display text-2xl font-medium text-navy">
+          Last synced:{" "}
+          <span className={lastSyncedAt ? "" : "text-stone"}>
+            {lastSyncedAt ? relativeTime(lastSyncedAt, now) : "never"}
+          </span>
+        </p>
+
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          {phase === "waiting" ? (
+            <span
+              role="status"
+              className="eyebrow inline-flex items-center gap-2.5 rounded-sm border border-brass/50 bg-cream px-5 py-3 text-[0.65rem] text-saddle"
+            >
+              <span
+                aria-hidden
+                className="h-2 w-2 animate-pulse rounded-full bg-brass"
+              />
+              Waiting for Amazon sync…
+            </span>
+          ) : phase === "synced" ? (
+            <span
+              role="status"
+              className="eyebrow inline-flex items-center gap-2 rounded-sm border border-emerald-700/40 bg-cream px-5 py-3 text-[0.65rem] text-emerald-800"
+            >
+              <span aria-hidden>✓</span> Synced
+            </span>
+          ) : null}
+
+          {phase !== "waiting" && (
+            <button
+              type="button"
+              onClick={openAndSync}
+              disabled={!registryUrl}
+              className="eyebrow rounded-sm bg-navy px-5 py-3 text-[0.65rem] text-cream transition-colors hover:bg-navy-deep disabled:opacity-50"
+            >
+              {phase === "synced" ? "Sync again" : "Open Amazon & Sync"}
+            </button>
+          )}
+
+          {phase === "waiting" && (
+            <button
+              type="button"
+              onClick={() => setPhase("idle")}
+              className="text-[0.75rem] font-light text-stone underline-offset-4 hover:text-navy hover:underline"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+
+        {phase === "gave-up" && (
+          <p className="mt-3 text-[0.8rem] font-light text-stone">
+            No sync arrived. Open Amazon and click the bookmark whenever you&rsquo;re ready.
           </p>
+        )}
+
+        <p className="mt-4 max-w-2xl text-[0.8rem] font-light leading-relaxed text-ink/70">
+          Amazon opens in a new tab. Click the{" "}
+          <span className="text-navy">Sync Baby Registry</span> bookmark there and
+          this page updates on its own.
+        </p>
+
+        {bookmarklet && (
           <div className="mt-3 flex flex-wrap items-center gap-3">
+            <span className="text-[0.75rem] font-light text-stone">
+              First time? Drag this to your bookmarks bar:
+            </span>
             <span
               // A javascript: href must be emitted as raw HTML; React refuses them.
               dangerouslySetInnerHTML={{
-                __html: `<a href="${bookmarklet.replace(/"/g, "&quot;")}" draggable="true" onclick="return false" class="eyebrow inline-flex cursor-grab items-center gap-2 rounded-sm border border-brass/60 bg-cream px-4 py-2.5 text-[0.62rem] text-saddle" title="Drag me to your bookmarks bar">↞ Sync Baby Registry</a>`,
+                __html: `<a href="${bookmarklet.replace(/"/g, "&quot;")}" draggable="true" onclick="return false" class="eyebrow inline-flex cursor-grab items-center gap-2 rounded-sm border border-brass/60 bg-cream px-3 py-2 text-[0.58rem] text-saddle" title="Drag me to your bookmarks bar">↞ Sync Baby Registry</a>`,
               }}
             />
             <button
@@ -89,38 +196,11 @@ export function SyncPanel({
               onClick={copyBookmarklet}
               className="text-[0.75rem] font-light text-stone underline-offset-4 hover:text-navy hover:underline"
             >
-              {copied ? "Copied" : "or copy the bookmark link"}
+              {copied ? "Copied" : "or copy the link"}
             </button>
           </div>
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
-        <div>
-          <h2 className="eyebrow text-stone">Scheduled sync</h2>
-          <p className="mt-1 text-[0.8rem] font-light text-ink/70">
-            Runs hourly from the server. Works only when Amazon serves the page to it.
-          </p>
-        </div>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => start(async () => setResult(await triggerSync()))}
-          className="eyebrow rounded-sm border border-navy px-5 py-2.5 text-[0.62rem] text-navy transition-colors hover:bg-navy hover:text-cream disabled:opacity-50"
-        >
-          {pending ? "Syncing…" : "Sync now"}
-        </button>
+        )}
       </div>
-
-      {result && (
-        <p
-          className={`border-t border-linen px-5 py-3 text-[0.8rem] ${tone[result.status] ?? ""}`}
-        >
-          <span className="eyebrow mr-2 text-[0.58rem]">{result.status}</span>
-          {result.itemsSeen} seen · {result.itemsAdded} added · {result.itemsUpdated} updated
-          {result.message ? ` · ${result.message}` : ""}
-        </p>
-      )}
 
       {runs.length > 0 && (
         <ul className="divide-y divide-linen border-t border-linen">

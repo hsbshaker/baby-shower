@@ -316,6 +316,21 @@ async function logSyncRun(result: SyncResult, startedAt: Date, finishedAt: Date)
   }
 }
 
+/** ISO timestamp of the most recent successful sync, or null if none yet. */
+export async function getLastSuccessfulSyncAt(): Promise<string | null> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from('sync_runs')
+    .select('started_at, finished_at')
+    .eq('status', 'ok')
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return (data.finished_at ?? data.started_at) as string;
+}
+
 /** Returns the most recent sync_runs rows, newest first. */
 export async function getRecentSyncRuns(limit = 5): Promise<SyncRun[]> {
   const supabase = createServerClient();
