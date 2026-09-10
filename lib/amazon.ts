@@ -65,7 +65,6 @@ const MAX_ANCESTOR_HOPS = 20;
 export function parseRegistryHtml(html: string): ParsedRegistryItem[] {
   const $ = cheerio.load(html);
   const items: ParsedRegistryItem[] = [];
-  const seen = new Set<string>();
 
   $('[data-br-vv-item-action]').each((_, el) => {
     try {
@@ -83,7 +82,6 @@ export function parseRegistryHtml(html: string): ParsedRegistryItem[] {
       // No asin => not a real product card (e.g. the diaper-fund gift
       // card, which shares this attribute but has a different shape).
       if (!regItemId || !regId || !asin) return;
-      if (seen.has(regItemId)) return;
 
       // Walk up to the nearest ancestor that contains both the quantity
       // badge and the product link. A card's markup splits these across
@@ -105,8 +103,6 @@ export function parseRegistryHtml(html: string): ParsedRegistryItem[] {
         container = container.parent();
       }
       if (!found) return; // no quantity element nearby -> not a trackable item
-
-      seen.add(regItemId);
 
       // --- Quantity ---
       const qtyText = container
@@ -169,7 +165,7 @@ export function parseRegistryHtml(html: string): ParsedRegistryItem[] {
 
       const buy_url = `https://www.amazon.com/dp/${asin}?colid=${regId}&coliid=${regItemId}&ref_=lv_vv_wl_dp`;
 
-      items.push({
+      const item: ParsedRegistryItem = {
         amazon_item_id: regItemId,
         asin,
         name,
@@ -178,7 +174,16 @@ export function parseRegistryHtml(html: string): ParsedRegistryItem[] {
         qty_needed,
         qty_purchased,
         buy_url,
-      });
+      };
+
+      // The bookmarklet concatenates the "still needed" and "purchased"
+      // views. If an item shows up in both, trust the higher purchased count.
+      const existing = items.findIndex((i) => i.amazon_item_id === regItemId);
+      if (existing >= 0) {
+        if (item.qty_purchased > items[existing].qty_purchased) items[existing] = item;
+        return;
+      }
+      items.push(item);
     } catch (err) {
       console.warn('parseRegistryHtml: skipping an item due to a parse error', err);
     }

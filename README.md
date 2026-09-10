@@ -47,10 +47,14 @@ posted to it as `{ "html": "..." }`.
 runners both get a 403 bot page, so the scheduled paths below only succeed
 when Amazon happens to allow them. The reliable path is the bookmarklet.
 
-1. **Bookmarklet (recommended).** In `/admin`, drag **Sync Baby Registry**
-   to your bookmarks bar. Open your Amazon registry page and click it: it
-   scrolls to load every item, then posts the page to `/api/sync`. Takes
-   about two seconds. Do this after gifts arrive, or whenever you add items.
+1. **Bookmarklet (recommended).** In `/admin`, click **Open Amazon & Sync**,
+   then click the **Sync Baby Registry** bookmark on the Amazon tab (drag it
+   from `/admin` to your bookmarks bar the first time). From any amazon.com
+   tab it fetches the public guest view of the registry without your login
+   cookies, follows Amazon's own load-more pagination, also requests the
+   "Purchased" filter (Amazon hides purchased items from the default list),
+   and posts all of it to `/api/sync`. The admin page updates on its own.
+   Do this after gifts arrive, or whenever you add items.
 2. **Supabase pg_cron (configured).** `cron.job` `amazon-registry-sync`
    calls `/api/sync` at minute 7 of every hour from Vercel. Logs an error
    and changes nothing when Amazon blocks it.
