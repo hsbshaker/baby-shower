@@ -1,39 +1,41 @@
 # AI-Native Event Website + RSVP + Registry Platform
 
 **Document:** Product Requirements Document (PRD) / `spec.md`
-**Status:** Revision 2 — MVP baseline for implementation
+**Status:** Revision 5 — MVP baseline for implementation
 **Initial launch vertical:** Baby showers
 **Platform architecture:** Event-generic, baby-shower-first
 **Primary build principle:** **AI should remove decisions, not create more decisions.**
 
 ---
 
-## 0. What changed in Revision 2
+## 0. What changed in Revision 5
 
-This revision replaces the baseline PRD after a pressure-test review. Implementing agents should treat this document as authoritative; where it conflicts with the earlier baseline, this document wins.
+Revision 5 reconciles the product with the approved creation UX and the first renderer architecture pressure test. Implementing agents must treat this document as authoritative; where it conflicts with Revision 4, older prototypes, or repository history, **Revision 5 wins**.
 
-| Area | Baseline | Revision 2 |
+The core product scope remains baby-shower-first and the commercial hypothesis remains **$49 one-time to publish**. The important changes are architectural and experiential.
+
+| Area | Revision 4 | Revision 5 |
 | --- | --- | --- |
-| Concept previews | "Images/screenshot-like compositions" | Live components rendered by the production renderer in a scaled frame. No screenshots. |
-| Site generation | Separate step after concept selection | Removed. Selecting a concept persists its `DesignSpec`. There is no generation step. |
-| Layout | Unspecified | Explicit archetype library (6 hero archetypes, 2–3 treatments per section). AI returns IDs, not layout prose. |
-| Concept diversity | Prompt instruction only | Enforced in code as hard constraints with deterministic repair. |
-| Redesign allowance | Exactly one before publish | Effectively unlimited during alpha/beta; backend spend limits; commercial limits set from observed data. All generated concepts stay browsable. |
-| Site imagery | Unspecified | Host-uploaded only. Every archetype must render without a photo. No generated imagery in MVP (deliberate deferral). |
-| Inspiration input | Images and links | Image uploads (including screenshots of Pinterest boards). Links are best-effort only; Pinterest board URLs are not supported. |
-| Waiting for generation | Unspecified | Generation starts on prompt submit; required follow-up questions are asked while it runs. Parallel concept calls, streamed reveal, explicit latency targets. |
-| Guest identification | Deferred | Name lookup, with optional SMS one-time-code verification when a phone is on file, and a texted magic link for later updates. |
-| Guest communication | Email only | Phone preferred, email optional fallback, both optional at import. SMS is the primary channel under host-attested consent. |
-| Registry content types | External registry + native item | Adds a display-only cash fund card. |
-| Native item metadata | "Can evolve separately" | One host-initiated fetch at add time, prefilled form, manual entry as the primary path for Amazon. |
-| Reservation | Reserve → confirm → 24h expiry | Same shape, 72h fixed expiry. No nudges, click logs, or reconciliation in V1. |
-| Private event gate | Unspecified | Hero visible (title, hosts, date); everything else locked. Fixed rule, `noindex`. |
-| Pricing | Placeholder | $49 one-time, pay to publish. Real price shown on the mocked gate from day one. |
-| Co-host permissions | Two "if allowed by final UX" punts | Near-parity with owner: content, guests, RSVP, registry, communications, direct design controls, redesign, and concept selection. Owner-only: publish, billing, co-host management, delete/ownership. |
-| Post-event | Passed state | Unchanged. No cancel toggle; a host edits the date to the past. No refunds, no ownership transfer. |
-| Growth | Unspecified | Guest site carries a tasteful "made with" footer line. The guest site is the referral surface. |
+| Landing/auth | CTA → account → prompt | **Landing page is the prompt.** User writes the idea first; auth/save occurs before strong-model generation. Prompt and inspiration must survive OAuth intact. |
+| Post-concept flow | Concept selection → setup/admin | **Concept selection → full-site reveal → “Make it yours” → Creation Mode.** The event itself is the setup workspace. |
+| Setup UX | Setup/admin areas | **No pre-publish dashboard/wizard.** Contextual `Edit` / `Set up` / `Add` actions live on the actual event site. |
+| Setup progress | General checklist | Checklist separates **Needed to publish** from **Recommended before sharing**. Optional Guests/Registry never make publish readiness look incomplete. |
+| Redesign entry | Design/gallery flow | `Try another direction` appears on initial concepts, site reveal, and Design controls. It preserves all event content/data. |
+| Preview | Mobile-first preview | Preview uses the production renderer; on larger screens it offers **Mobile / Desktop** width controls. |
+| Model design output | Model returns a mostly orthogonal `DesignSpec` | Model returns a **six-field `DesignIntent` only**. It does not emit treatment/card/button/border overrides. |
+| Archetypes | Hero primitive among many independent dimensions | **Versioned archetype bundle owns composition and component defaults**: section treatments, guest-surface composition, cards, borders, buttons, ornamentation, and visual treatment. |
+| Compilation | Model output rendered after schema validation | Deterministic compiler resolves archetype defaults, typography compatibility, motif placement, tone/palette semantics, contrast, and repairs into immutable `ResolvedDesignSpec`. |
+| Persistence | Persist immutable `DesignSpec` | Persist **DesignIntent + archetype version + ResolvedDesignSpec** for every concept. Render concept base only from the resolved spec. |
+| Immutability | Generated concepts immutable | **Generated design data is immutable; renderer code is not.** Bug/accessibility/responsive fixes may improve all events without recompiling historical concepts. |
+| Motifs | Model chooses motif IDs; placement implicit | Motifs declare supported roles (`field`, `frame`, `band`, `divider`, `accent`), semantic color channels, opacity bounds, and max placements. Archetypes expose matching slots. Dropped motifs are logged. |
+| Palette | Palette roles could be consumed directly by archetypes | Raw creative palette + tonal direction go through a **semantic palette compiler**. Archetypes never interpret raw palette roles. Required contrast is valid by construction. |
+| Diversity | Archetype/tone plus many treatment dimensions | Primary levers are **archetype/composition → tone when permitted → typography category → motifs → density → palette dominance**. |
+| Guest design | Themed components implied | Renderer explicitly owns themed guest components and archetype-specific guest composition. **Mobile information architecture may converge**; differentiation at phone width comes mainly from framing, typography, motif, density, and component skin. |
+| Renderer validation | Broad visual matrix | Before remaining archetypes are built, the first three must pass constrained-brief, palette-control, grayscale, guest-surface, swap, compiler, and incompatible-intent tests. |
 
----
+The primary product principle remains:
+
+> **AI should remove decisions, not create more decisions.**
 
 ## 1. Executive Summary
 
@@ -102,7 +104,8 @@ The host describes the event in natural language. AI:
 - infers the intended mood and aesthetic;
 - translates named references into original design attributes rather than copying protected brand assets;
 - produces a structured creative brief (the Event Identity);
-- configures three clearly different concepts from a constrained library of live design primitives;
+- produces compact DesignIntent for three clearly different concepts;
+- deterministic renderer code compiles each intent into a versioned, accessible ResolvedDesignSpec;
 - keeps subsequent editing simple and constrained.
 
 The user never "builds a website."
@@ -154,269 +157,480 @@ These principles are requirements, not suggestions.
 
 ### 4.1 AI should remove decisions, not create more decisions
 
-AI makes opinionated decisions on behalf of the host where it is safe to do so. Do not turn AI into a questionnaire generator. Do not ask the user to choose from fonts, hex colors, card styles, border radii, spacing, motifs, layouts, button variants, or templates. The host describes intent; the system translates intent into design.
+AI makes opinionated decisions on behalf of the host where it is safe to do so. Do not turn AI into a questionnaire generator. Do not ask the user to choose implementation primitives such as card styles, border radii, spacing, motifs, layout IDs, or button variants.
 
-### 4.2 AI is the creative director; the component system is the builder
+The host describes intent; the system translates intent into a cohesive event.
 
-AI chooses and configures from a **constrained but expressive library of live design primitives**. It does not generate arbitrary page layouts or HTML. Concept previews use the production renderer itself. Selecting a concept persists its `DesignSpec`; there is no separate website-generation step. Concept diversity is enforced programmatically, not solely through model instructions.
+### 4.2 AI expresses intent; deterministic systems build and protect quality
 
-### 4.3 Archetypes are implementation primitives, not customer-facing templates
+The strong model creates:
+- an `EventIdentity`;
+- a compact six-field `DesignIntent` for each concept.
 
-The renderer has a small library of hero archetypes and section treatments (§11). The user never sees "Pick Hero Template #4." AI picks. There is no template gallery anywhere in the product.
+It does **not** generate arbitrary HTML, CSS, SVG, page layouts, section treatment overrides, card variants, border variants, or button variants.
 
-### 4.4 AI-first, controls second
+A deterministic renderer compiler:
+1. loads the selected versioned archetype bundle;
+2. validates/repairs typography compatibility;
+3. assigns requested motifs to compatible archetype slots;
+4. compiles raw palette + tonal direction into accessible semantic event tokens;
+5. applies archetype-owned section/component defaults;
+6. produces and persists an immutable `ResolvedDesignSpec`.
 
-Initial creation is AI-led. After generation, lightweight manual controls are available. The product must not become Wix, Webflow, Canva, Elementor, or a free-form page builder.
+The production renderer renders from the resolved spec.
 
-### 4.5 Mobile first everywhere
+### 4.3 Archetypes are internal design systems, not customer-facing templates
 
-The entire application is designed **phone-first, desktop-second**: landing, signup, prompt entry, concept selection, preview, host dashboard, guest management, registry management, RSVP management, announcements, guest site, RSVP flow, registry flow. A host must be able to build and manage the entire event from a phone.
+An archetype is a **versioned bundle** that owns:
+- hero composition;
+- desktop/mobile composition rules;
+- Event Details treatment;
+- RSVP treatment;
+- Registry treatment;
+- guest-surface composition;
+- visual treatment;
+- ornamentation;
+- border treatment;
+- card treatment;
+- button treatment;
+- motif slots;
+- compatible typography pairings.
 
-### 4.6 Opinionated design quality
+The host never sees “Template 4,” “Archetype,” or these implementation fields. There is no template gallery.
 
-Users may customize within safe boundaries, but the system makes it difficult to create an ugly or incoherent site. Every archetype renders correctly with no photo. Contrast is derived in code so no concept can ship unreadable text.
+### 4.4 Prompt first, auth second, generation third
 
----
+The user should invest in their creative idea before being asked to authenticate.
+
+Canonical sequence:
+1. user writes the event prompt and may add inspiration;
+2. auth/save occurs;
+3. prompt and inspiration are restored exactly;
+4. strong-model generation begins.
+
+Do not burn frontier-model generation on anonymous traffic.
+
+### 4.5 Show the finished-looking outcome before setup
+
+Concept selection leads directly to a full production-rendered site reveal.
+
+The product should make the host feel:
+
+> **This is already my event site. I only need to make it real.**
+
+Do not interrupt that activation moment with a dashboard.
+
+### 4.6 Creation Mode is the event itself
+
+Before publish, the actual event site is the workspace. Owner/co-host-only contextual controls appear at stable collaborator anchors:
+- `Edit`
+- `Set up`
+- `Add`
+
+Focused sheets/panels may edit structured data, then return the collaborator to the same place.
+
+Guest management is the major exception because household/CSV/phone operations need a dedicated workspace.
+
+### 4.7 No setup wizard
+
+Independent tasks do not require a linear Step 1 → Next → Step 2 workflow.
+
+The floating setup control is navigation and readiness, not a wizard.
+
+### 4.8 Mobile first; desktop is real desktop
+
+Every core workflow works from approximately 390px outward.
+
+Desktop must use desktop space intentionally. Creation Mode is not trapped inside a phone frame. Concept comparison may show mobile-shaped previews, but application chrome and the event canvas are responsive desktop UI.
+
+### 4.9 Opinionated design quality
+
+Users may refine within safe boundaries, but the system makes it difficult to create an incoherent site.
+
+Manual design controls remain limited to curated palette and typography choices. Section content/order/visibility are content operations, not a page builder.
+
+### 4.10 Generated design data is immutable; renderer code is maintainable
+
+Once a concept is generated:
+- its `DesignIntent` is immutable;
+- its selected `archetypeVersion` is immutable;
+- its `ResolvedDesignSpec` is immutable.
+
+Do not silently recompile an old concept against newer archetype defaults.
+
+However, renderer implementation code is normal product code. Accessibility fixes, browser fixes, responsive fixes, and visual bug fixes may improve every event that renders a compatible resolved spec. “Concept immutability” must never block ordinary renderer maintenance.
 
 ## 5. MVP Scope
 
 ### 5.1 In scope
 
-**Event creation and design**
+**Prompt-first event creation**
+- Landing page is the natural-language event composer.
+- Optional private inspiration images/links may be added directly to the composer.
+- Auth/save occurs after the prompt is written and before strong-model generation.
+- Prompt text and successfully uploaded inspiration must survive auth/OAuth redirects exactly.
+- No front-loaded profile/configuration flow.
 
-- Natural-language event description
-- Optional inspiration image uploads
-- Optional inspiration links (best-effort)
-- Minimal required follow-up questions, asked while generation runs
-- AI-generated Event Identity (creative brief)
-- Three concept previews rendered live by the production renderer
-- Selection of one concept, which persists its `DesignSpec`
-- Redesign rounds ("Try a different direction") with optional feedback, producing three new concepts each round
-- Gallery of all previously generated concepts for the event, any of which can be selected
-- Ability to keep the current design instead of selecting a new concept
-- Lightweight direct editing
+**AI identity and design**
+- Strong-model `EventIdentity`.
+- Backend diversity planner assigns concept constraints.
+- Strong-model six-field `DesignIntent` per concept.
+- Deterministic compilation to immutable `ResolvedDesignSpec`.
+- Three live concept previews using the production renderer.
+- Initial `Try another direction` escape hatch under the three concepts.
+- Concept selection followed by full-site reveal.
+- Pre-publish redesign rounds from concept screen, reveal, or Design controls.
+- All generated concepts remain browsable before publish.
+- Current active design remains unchanged until a new concept is explicitly selected.
+- No host-uploaded decorative/event imagery.
+
+**Creation Mode**
+- Selected concept becomes the actual event site.
+- Full-site reveal: **“Your event looks great. Let’s make it real.”**
+- `Make it yours` transitions the same site into Creation Mode.
+- Contextual owner/co-host controls live on stable renderer collaborator slots.
+- Floating readiness/setup control.
+- Checklist separates publish blockers from recommended-but-optional work.
+- Autosave routine edits.
+- Guest management may open a dedicated full-screen workspace.
+- `Preview` removes collaborator controls and shows the exact guest experience.
 
 **Event website**
+- Event title/name.
+- Host/parent names as applicable.
+- Date, time, venue, address.
+- IANA timezone inferred from venue text, browser fallback.
+- Description/welcome copy.
+- Small number of simple optional information blocks inferred from prompt.
+- Public/private.
+- Private access code; finished hero visible before code, sensitive/event-operational content locked.
+- Branded subdomain.
+- QR code.
+- Tasteful `Made with …` footer.
 
-- Event title/name
-- Host/parent names as applicable
-- Date, time, venue, address
-- Basic event description/copy
-- AI may suggest a small number of optional informational content blocks inferred from the prompt; these remain simple content blocks, not feature modules
-- Visibility: public or private
-- Private access via event code; hero remains visible, everything else locked
-- Branded subdomain
-- QR code for host distribution
-- "Made with" footer line
-
-**RSVP and guest management**
-
-- Manual guest entry
-- CSV guest import
-- Invite-only guest list; no open/public RSVP
-- Household/party grouping; adults and children; plus-ones
-- RSVP deadline
-- Attendance response, custom questions, meal choice, dietary restrictions, notes
-- Guest identifies their party by name lookup
-- Optional SMS one-time-code verification when a phone is on file
-- Confirmation after RSVP; texted magic link for later updates when a phone is on file
-- Guest can update RSVP later
-- Host/co-host RSVP dashboard
+**RSVP and guests**
+- Manual guest-party entry.
+- CSV import.
+- Invite-only RSVP.
+- Household/party grouping, adults/children/plus-ones.
+- Phone-first party contact.
+- Missing-phone CSV rows import as **Needs phone**.
+- Rare explicit `noPhoneAvailable` path.
+- Optional email.
+- RSVP deadline.
+- Attendance, meal, dietary, custom questions, notes.
+- Name lookup.
+- SMS OTP for phone-backed parties.
+- Scoped guest-party session; no guest account.
+- Magic-link return/update.
 
 **Registry**
-
-- External registry links (Amazon, Babylist, Target, etc.) presented as themed destinations
-- Individually added native items by product URL, with add-time metadata fetch and manual entry
-- Native items use the reserve → confirm → purchased flow with 72h expiry
-- Purchased status never reveals purchaser identity publicly; host can see it
-- Cash fund card (display only: handle, suggested amounts, blurb)
-- Host can manually manage native item state
+- External registry destinations.
+- Native gifts by product URL with one safe metadata/image convenience fetch and manual fallback.
+- Platform-owned normalized native product thumbnail where possible.
+- Native gift public state: Available/Purchased only.
+- Private buy-click logging; no reservation state.
+- Optional self-confirm purchase on return.
+- Host/co-host purchase override.
+- Display-only cash fund.
 
 **Communication**
-
-- SMS reminders to non-responders and SMS announcements, under host-attested consent
-- Email as fallback when a guest has email but no phone
-- Initial invitation delivery is outside the platform; host distributes URL/QR code independently
+- SMS-first reminders/announcements.
+- Email fallback only for no usable phone / SMS delivery failure, never as a STOP bypass.
+- Initial invitation distribution remains outside platform.
 
 **Roles**
-
-- Owner
-- Invited co-host(s)
+- Owner.
+- Co-host with near-parity for event work.
+- Guest with no account.
 
 **Publishing**
-
-- Free to create, generate, and preview
-- $49 to publish; payment gate mocked during initial build
-- Post-publish content/operational edits allowed
-- Post-publish AI redesign not allowed
+- Free to create/generate/redesign/preview within backend limits.
+- $49 one-time publish hypothesis.
+- Deterministic `READY_TO_PUBLISH`.
+- Payment separate from readiness.
+- Post-publish content/operations/curated direct-design edits allowed.
+- Post-publish AI redesign/concept switching disabled.
 
 **Post-event**
-
-- Simple event-passed state with a thank-you message
-- Registry remains accessible
+- Passed-event thank-you state.
+- Registry remains accessible.
 
 ### 5.2 Explicit non-goals for MVP
 
 Implementing agents must **not** add these unless explicitly requested later:
 
-- drag-and-drop page builder, pixel-level layout editor, free-form design canvas;
-- template gallery or template marketplace;
-- seating charts, event timeline/planning tools, vendor management, venue marketplace;
-- photo galleries, thank-you-note manager, printed stationery, invitation designer, initial invitation sending;
-- WhatsApp messaging;
-- ticketing, payments from guests, group gifting;
-- public/open RSVP, guest self-registration outside the invite list;
-- browser extensions, bookmarklets;
-- retailer scraping as a product dependency, Amazon auto-sync, residential proxy integration, item-level synchronization of external registries;
-- AI-generated imagery or illustration (deliberately deferred; see §11.7);
-- Pinterest board URL ingestion;
-- persistent AI chat/copilot, token-level "edit with AI";
-- AI design changes after publish;
-- a version-history or rollback *system* (the concept gallery in §8.11 is not one);
-- reservation nudges, click logs, purchase reconciliation;
-- cancel/unpublish toggle, refunds, ownership transfer;
+- drag-and-drop page builder, pixel editor, arbitrary CSS, free-form canvas;
+- customer-facing template gallery;
+- model-emitted section/card/button/border/treatment overrides;
+- host controls for card treatment, border treatment, button treatment, spacing, density, motif placement, or archetype internals;
+- seating charts, timeline/planning modules, vendors, venue marketplace;
+- photo galleries, printed stationery, thank-you-note manager, invitation sending;
+- host decorative site-photo uploads, hero-photo uploads, crop/position controls;
+- AI-generated decorative site imagery;
+- public/open RSVP;
+- guest accounts;
+- browser extensions/bookmarklets;
+- retailer scraping/sync/proxies/anti-bot workarounds;
+- Pinterest-board URL ingestion promise;
+- persistent AI chat/copilot or token-level design editing;
+- AI redesign after publish;
+- user-facing AI credits/generation counters during alpha/beta;
+- version-history/rollback system beyond immutable generated concept gallery;
+- gift reservations/holds/timers/public claim state;
+- purchase nudges/collision engine;
+- maps/geocoding solely for timezone;
+- cancel/unpublish/refund/ownership-transfer workflows;
 - custom domains unless trivial/stubbed;
 - native mobile apps;
-- user-facing analytics dashboards.
-
----
+- user-facing analytics dashboards;
+- app dark mode in MVP.
 
 ## 6. Primary User Roles
 
 There are no additional personas in MVP. The three roles below are complete.
 
-Owner and co-host have **near-parity** on event management. Do not divide them into a "design host" and an "operations host." The only owner-only actions are account- and ownership-sensitive.
-
 ### 6.1 Owner
 
-The owner created the event. Owner can do everything, including:
+The owner created the event. Owner can:
 
 - create the event and enter the initial design prompt;
-- upload inspiration;
-- generate, redesign, and select concepts;
-- publish (payment is tied to publish);
-- manage event details, guests, RSVP configuration, registry, communications;
-- change styling using direct controls;
-- control privacy/access;
-- manage co-hosts;
-- delete/archive the event;
-- handle billing and, if ever added, ownership transfer.
+- upload private inspiration images/links;
+- generate, redesign, browse, and select concepts before publish;
+- use direct design controls;
+- manage event details, privacy, guests, RSVP configuration and responses;
+- manage external registries, native items, cash fund;
+- send reminders/announcements;
+- invite/remove co-hosts;
+- publish and handle billing/payment;
+- delete/archive the event.
 
 ### 6.2 Co-host
 
-Invited by the owner. Co-host can do **everything except the owner-only actions below**:
+Invited by the owner. Co-host is a **true event collaborator** and has near-parity with the owner for event work.
 
-- edit event details, text, and images;
+Co-host can:
+
+- edit event details and content;
+- manage privacy/access settings;
 - manage guest list and import CSV;
-- manage RSVP settings and questions; view and manage responses;
-- manage external registries, native items, and the cash fund card;
+- manage RSVP settings/questions and view responses;
+- manage external registries, native items, native item purchase state, and cash fund;
 - send reminders/announcements;
-- use direct design controls (colors, typography pairing, section order and visibility);
-- generate redesign concepts before publish;
-- select concepts before publish, including from the gallery.
+- use direct design controls;
+- enter redesign feedback and add private inspiration input for redesign;
+- generate redesign rounds and browse/select concepts **before publish**;
+- use the same pre-publish AI/design-generation functionality as the owner after joining the event;
+- preview the site;
+- publish **only if the event's payment requirement is already satisfied**.
 
-Co-host **cannot**:
+A co-host invitation must preserve its invitation token through authentication. After acceptance, the user enters the existing event workspace; they do not repeat event creation.
 
-- publish;
-- manage billing/payment;
-- manage co-host access;
-- delete the event;
-- transfer ownership, if that is ever added.
+Co-host cannot:
 
-Co-hosts join after creation, so the initial prompt and initial generation are inherently the owner's. Everything after that is shared. Publishing is owner-only in MVP only because payment is tied to it; if co-hosts should be true operational equals, allow them to publish once the event has already passed the payment gate.
+- initiate or manage payment/billing;
+- invite/remove/manage other co-hosts;
+- transfer ownership;
+- delete the event.
+
+Generation/spend/abuse limits apply at both the event and acting-account level, regardless of whether the caller is the owner or a co-host.
 
 ### 6.3 Guest
 
 - receives the event link/QR code from the host outside the platform;
 - opens the site; enters the event code if private;
 - views event details;
-- finds their party by name lookup; optionally verifies by SMS code;
+- finds their party by name lookup and verifies by SMS code;
 - submits and later updates RSVP;
-- browses registry; leaves to shop an external registry; reserves and confirms native items;
+- browses registry; leaves to shop external registries or native gift retailer links;
+- may self-confirm a native gift purchase;
 - never creates an account.
 
 ---
 
 ## 7. End-to-End Host Journey
 
-### 7.1 Landing page
+### 7.1 Landing page is the prompt
 
-Communicates the product within seconds.
+The product should be usable immediately.
+
+Primary message:
 
 > **Describe your event. We create the whole experience.**
 
-Supporting language makes clear the system creates a themed event site, RSVP experience, and registry experience. Primary CTA: **Create my event**. No template gallery.
+The natural-language composer is the hero of the landing page.
 
-### 7.2 Account creation
+Primary controls:
+- large event-description input;
+- `+ Add inspiration`;
+- `Create my event ✦`.
 
-Lightweight. No front-loaded profile configuration. After signup, proceed directly to event creation.
+Reassurance may say:
+> Free to create · No templates · Publish when ready
 
-### 7.3 Event creation prompt
+Do not require signup before the user writes.
 
-Primary screen:
+### 7.2 Pre-auth draft and authentication
 
-> **Tell us what you're planning.**
+On `Create my event`:
+1. persist a short-lived private draft containing the exact prompt;
+2. retain references to successfully uploaded private inspiration assets;
+3. retain lightweight client state needed to restore the composer;
+4. authenticate via Google/Apple/email;
+5. attach the draft to the authenticated owner/event;
+6. restore the user's prompt and inspiration exactly.
 
-Large natural-language input. Example placeholder:
+**Strong-model generation does not begin until authentication succeeds.**
 
-> "I'm throwing a baby shower for our baby boy in December. We want it to feel like an elevated heritage country-club/lodge event — navy, cream, green, warm, classy and not overly baby-ish."
+Losing the prompt or inspiration during OAuth is a critical product failure.
 
-Optional controls beneath the prompt:
+Temporary pre-auth assets remain private, expire automatically if abandoned, and never become public event imagery.
 
-- `Add inspiration images` — uploads of any images: invitation inspiration, decor screenshots, venue photos, screenshots of Pinterest boards, other references.
-- `Add inspiration link` — best-effort only. The system attempts a single metadata/preview fetch; if it fails, the link is stored as text context. Do not promise Pinterest board ingestion; most boards require login and block server fetches.
+### 7.3 Generation begins; required details run in parallel
 
-Inspiration is never required.
+After auth:
+- create/attach the event draft;
+- begin Event Identity generation immediately;
+- collect only genuinely missing required event fields while generation runs.
 
-### 7.4 Generation starts immediately; follow-ups run in parallel
-
-On prompt submit, generation begins **immediately**. While it runs, the system asks only the follow-up questions required to make a functioning event:
-
+Potential missing details:
 - event date;
-- start time (end time optional);
-- venue/location;
-- host/parent names;
-- baby name if the host wants it shown;
+- start time (end optional);
+- venue/location/address;
+- hosts/parent names;
+- baby name if shown;
 - RSVP deadline;
-- public or private.
+- public/private.
 
-Skip any question the prompt already answered. These answers do not affect aesthetics, so they can be collected while concepts generate. Do not ask aesthetic questions that AI can infer.
+Skip values already supplied.
 
-### 7.5 Event Identity (creative brief)
+Do not normally ask timezone; infer it per §7.4.
 
-A strong model derives a structured **Event Identity** from the prompt and inspiration. It is the creative brief, stored persistently and reused for every later generation instead of re-sending the original prompt and assets.
+### 7.4 Venue normalization and timezone inference
+
+Do not introduce a maps/geocoder solely for timezone.
+
+1. Normalize supplied venue/address text.
+2. Infer candidate IANA timezone + confidence from city/state/region/country.
+3. Validate against an application-side IANA set.
+4. On low/invalid confidence, use owner/co-host browser timezone.
+5. Re-run when venue changes materially.
+6. Ask only when both sources are unavailable/obviously contradictory.
+
+Lifecycle calculations always use the stored IANA timezone.
+
+### 7.5 Event Identity
+
+A strong multimodal model derives and persists the creative brief.
 
 ```ts
 EventIdentity {
-  creativeDirection      // one-paragraph summary
+  creativeDirection
   toneKeywords[]
-  paletteIntent          // named colors, constraints (e.g. "navy/cream/green only")
+
   colorsExplicitlyConstrained: boolean
-  visualMotifs[]         // from the motif vocabulary (§11.4)
-  imageryDirection
+  paletteIntent
+
+  tonalIntent
+  toneExplicitlyConstrained: boolean
+  compatibleTonalDirections[]       // ranked subset: light | mid | dark
+
+  compatibleHeroArchetypes[]        // ranked archetype IDs
+  compatibleTypographyCategories[]  // ranked broad categories, not raw fonts
+
+  visualMotifs[]
+  textureDirection
   typographyDirection
   copyTone
-  designConstraints[]    // e.g. "not cheesy", "not overly baby-ish"
-  inspirationSummary     // text summary of uploaded images
+  designConstraints[]
+  inspirationSummary
 }
 ```
 
-The Event Identity is streamed to the client as it is produced (§7.7).
+The Event Identity describes compatibility and intent. It does not contain renderer treatment choices.
 
 ### 7.6 Brand/style references
 
-If a user references a brand or recognizable aesthetic (e.g. "Ralph Lauren"), interpret it into **design attributes**: heritage, equestrian, classic Americana, editorial serif typography, navy/ivory/forest/camel palette, restrained plaid, leather/linen textures, understated luxury. Never copy logos, trademark graphics, or specific protected designs.
+Named references such as Ralph Lauren are interpreted into original attributes: heritage, equestrian, classic Americana, editorial serif, navy/ivory/forest/camel, restrained plaid, understated luxury.
 
-### 7.7 The wait
+Never copy protected logos/graphics or reproduce a specific proprietary design.
 
-Concept generation must not feel like loading. In order of priority:
+### 7.7 Diversity planning before concept model calls
 
-1. **Hide the wait behind the follow-ups.** Questions from §7.4 are asked while concepts generate.
-2. **Parallelize and stream.** One call produces the Event Identity; three parallel calls each produce one `DesignSpec`, seeded with a forced-distinct direction. Each concept renders the moment its spec arrives.
-3. **Show the brief being written.** Stream the Event Identity: concept names, tone keywords, palette swatches fading in.
-4. **Skeleton with copy** as the fallback only.
+Once Event Identity is valid, deterministic code plans three concept assignments.
 
-**Latency targets** (agents must meet these, not approximate them):
+Priority:
+1. distinct compatible **hero archetypes** whenever possible;
+2. distinct compatible **tonal directions** when the brief allows;
+3. distinct compatible **typography categories** across the three when possible;
+4. density differentiation as a later lever when useful.
+
+If tone is explicitly constrained (e.g. light/airy), do not force dark/mid. Diversity then relies more heavily on archetype, typography, motifs, density, and palette dominance.
+
+The assigned archetype/tone/typography-category constraints are passed to each concept model call.
+
+### 7.8 DesignIntent generation
+
+The strong model returns exactly the creative intent surface below.
+
+```ts
+DesignIntent {
+  heroArchetype
+  tonalDirection
+
+  palette: {
+    colors: string[]        // 3–5 validated hex colors
+    dominant: string        // one member of colors[]
+  }
+
+  typographyPairing         // curated ID
+  density                   // compact | balanced | spacious
+  motifs[]                  // curated motif IDs
+}
+```
+
+**No model-emitted overrides exist in MVP.**
+
+The model cannot emit:
+- section treatment;
+- guest composition;
+- visual treatment;
+- ornamentation;
+- border treatment;
+- card treatment;
+- button treatment;
+- motif placement;
+- semantic background/text/button colors.
+
+Those belong to the compiler/archetype bundle.
+
+### 7.9 Renderer compilation
+
+For each valid DesignIntent:
+
+1. Load `ArchetypeDefinition` by ID and current selected version.
+2. Validate typography pairing against that archetype's compatible pairings.
+3. Deterministically repair incompatible pairing to an approved default/nearest allowed choice; record repair.
+4. Match requested motif IDs to compatible archetype motif slots by declared role.
+5. Enforce motif max placements (normally one or two).
+6. Drop motifs with no compatible available slot; record `motifsDropped`.
+7. Compile raw palette + tonal direction into semantic accessible event tokens.
+8. Apply archetype-owned treatments/composition defaults.
+9. Produce immutable `ResolvedDesignSpec`.
+10. Persist `DesignIntent`, `archetypeVersion`, and `ResolvedDesignSpec`.
+
+No model call is used for compiler validation/repair.
+
+### 7.10 The wait
+
+Generation must feel like progress:
+1. required details run while identity is being created;
+2. user-facing portions of Event Identity may stream;
+3. three DesignIntent calls run in parallel after diversity assignments;
+4. compilation is deterministic/local;
+5. each concept renders as soon as its resolved spec exists.
+
+Latency targets remain p75 goals:
 
 | Milestone | Target |
 | --- | --- |
@@ -424,123 +638,303 @@ Concept generation must not feel like loading. In order of priority:
 | First concept rendered | ≤ 15 s |
 | All three concepts rendered | ≤ 45 s |
 
-### 7.8 Three concept previews
+Measure reality; do not silently allow unbounded waits.
 
-Each concept is a `DesignSpec` (§11.2) rendered by the **production renderer** inside a scaled frame at mobile width. Previews are live components, not screenshots and not images.
+### 7.11 Three concept previews
 
-Provisional content uses whatever the prompt and follow-ups already provided (names, date, venue). Placeholders fill only what is still missing, so the preview reads as *their* site.
+Each concept preview uses the production renderer and its persisted `ResolvedDesignSpec`.
 
-Each concept has an AI-generated descriptive name and one-line description, e.g. Heritage Editorial, Winter Estate, Modern Club. These names are the only free-text creative output the user sees; everything else in the spec is IDs and values.
+Use real event values already known. Temporary sample content fills only genuinely missing content.
 
-The three concepts must be materially different (§11.5).
+Each concept displays:
+- creative concept name;
+- one-line description;
+- live renderer preview;
+- `Choose this direction`.
 
-### 7.9 Concept selection is the site
+Under the initial set:
 
-The owner (or a co-host, after creation) selects one concept. Selection **persists that concept's `DesignSpec`** as the event's active design and the renderer populates it with actual event data. There is no separate "generate the website" step. Sections 8.8 and 8.9 of the baseline are collapsed into this one action.
+> **None of these feel right?**  
+> `Try another direction ✦`
 
-Initial sections: Hero, Event Details, RSVP, Registry. AI may add a very small number of optional informational content blocks derived from the prompt; the host can hide, edit, or reorder them.
+On mobile, later concept renderer trees may lazy-mount near the viewport to avoid unnecessary work.
 
-### 7.10 Direct editing before publish
+### 7.12 Concept selection → full-site reveal
 
-Allowed: text; images; section order; section visibility; colors within curated controls; typography pairing from curated compatible pairings; event details; RSVP configuration; registry links/items/fund.
+Selecting a concept sets `activeConceptId`.
 
-Not exposed: arbitrary CSS; spacing controls; font upload; freeform canvas; drag-anything-anywhere; pixel-level editing.
+There is no separate website-generation step.
 
-### 7.11 Redesign
+Immediately reveal the full production-rendered guest site.
 
-Before publish, the owner or a co-host can choose **Try a different direction** as many times as backend limits allow (§10). The user never sees a credit count or a remaining-generations counter.
+Preferred activation:
+
+> **Your event looks great.**  
+> **Let’s make it real.**
+
+Actions:
+- `Make it yours →`
+- `Try another direction ✦`
+
+Concept selection changes **design only**, never event content/data.
+
+### 7.13 Creation Mode
+
+`Make it yours` does not navigate to a dashboard. The same site becomes editable.
+
+Collaborator-only controls attach to stable section-level collaborator slots:
+- `Edit`
+- `Set up`
+- `Add`
+
+Editors open in mobile sheets/full-screen flows or desktop panels/modals as appropriate, then return to the same place.
+
+Routine edits autosave.
+
+A floating readiness control shows truthful state such as:
+- `Finish setup`
+- `2 required items left`
+- `Ready to publish`
+
+Its sheet separates:
+
+**Needed to publish**
+- actual deterministic blockers from §23.1.
+
+**Recommended before sharing**
+- Guests;
+- Registry;
+- Co-host;
+- other useful optional work.
+
+Guests/Registry never make a publish-ready event look blocked.
+
+### 7.14 Guest management exception
+
+Guest management may leave the event canvas for a dedicated workspace because household grouping, CSV import, phone state, and response state need room.
+
+Closing returns to Creation Mode.
+
+### 7.15 Direct design controls
+
+`Design` exposes only curated:
+- palette choices/variants;
+- typography pairings compatible with the selected archetype;
+- reset to concept design;
+- `Try another direction ✦` before publish.
+
+Do not expose archetype internals, density, motifs, treatment, borders, cards, buttons, spacing, or CSS.
+
+Host-side deterministic direct design overrides remain on `Event.designOverrides`; they do not mutate the immutable generated concept.
+
+### 7.16 Redesign
+
+Available before publish from:
+- initial concept screen;
+- site reveal;
+- Design controls.
 
 Flow:
+1. optionally refine the creative brief;
+2. optionally add new private inspiration;
+3. reassure: **event content stays untouched**;
+4. update/merge Event Identity when needed;
+5. diversity planner assigns a fresh set of compatible directions;
+6. strong model generates three fresh DesignIntents;
+7. compiler resolves each;
+8. current active concept remains active while reviewing;
+9. collaborator selects one, keeps current, or refines again.
 
-1. Owner or co-host optionally enters feedback ("Less country club, more cozy winter estate.").
-2. Strong model uses the Event Identity, the current `DesignSpec`, the list of previously shown concept combinations, and the feedback.
-3. Three new concepts are generated. Previously shown hero-archetype + tonal-direction combinations are excluded by the backend, not just by the prompt, so repeated rounds do not cycle the same looks.
-4. The current design remains unchanged while the new concepts are reviewed.
-5. Owner or co-host selects a new concept or **Keep Current Design**.
+There is no chat-level micro-edit loop.
 
-**Concept gallery.** Every concept ever generated for the event remains browsable and selectable. Concepts are small JSON specs rendered client-side, so retaining them is free. This gives the host "go back to round two's concept" without building a versioning system. Do not delete old concepts to honor the "no version history" non-goal; that non-goal refers to a history/rollback *system*, not to retained specs.
+### 7.17 Preview
 
-**Granularity.** Redesign is always concept-level: three new directions plus optional feedback. There is no token-level or chat-level "make the button rounder" loop. Agents will drift toward building a chat; do not.
+Preview uses the exact production renderer and actual current content.
 
-### 7.12 Preview
+Preview strips:
+- collaborator actions;
+- setup control;
+- owner toolbar.
 
-Owner or co-host previews the guest-facing site before publish. Mobile preview is primary; desktop preview may be available.
+On larger screens:
+- default preview width is **Mobile**;
+- compact toggle may switch `Mobile / Desktop`.
 
-### 7.13 Publish
+This device-width control exists in Preview only; Creation Mode is not a breakpoint simulator.
 
-Publish is gated by the $49 payment. During MVP build the gate is mocked, but it displays the real price and behaves as if payment exists (§28).
+### 7.18 Publish
 
-Upon publish:
+Publish remains gated by the $49 one-time payment hypothesis.
 
-- event becomes accessible at its branded subdomain;
-- owner can copy the URL;
-- owner can view/copy/download the QR code;
-- owner distributes the link themselves.
+Owner completes/manages payment.
 
----
+Once payment is satisfied, owner or co-host may publish if deterministic readiness passes.
+
+After publish:
+- URL available;
+- QR available;
+- private event code surfaced separately;
+- host distributes externally.
 
 ## 8. Publishing and Editing Rules
 
 ### 8.1 Allowed after publish
 
-Date/time/location edits; copy edits; image changes; curated color changes; typography pairing changes; section order and visibility; guest additions/removals; RSVP settings/questions; registry additions/removals; cash fund edits; announcements/reminders; privacy settings.
+Owner and co-host may change:
+
+- date/time/location and ordinary event content;
+- RSVP settings/questions;
+- guest list and RSVP operations;
+- external registries, native items, native item purchase state, cash fund;
+- reminders/announcements;
+- privacy settings/event code;
+- section order and visibility;
+- curated palette override;
+- curated compatible typography pairing override.
+
+No other renderer treatment controls are exposed in MVP.
 
 Changes update the live site directly. No draft/live dual-version workflow.
 
 ### 8.2 Not allowed after publish
 
-AI redesign and concept selection are disabled after publish. The concept gallery becomes read-only.
+- AI redesign
+- new concept generation
+- switching/selecting a different generated concept
+
+The concept gallery becomes read-only after publish.
 
 ### 8.3 Cancellation
 
-There is no cancel or unpublish toggle in MVP. A host whose event is cancelled edits the date to the past and the passed state (§22) takes over. No refunds. No ownership transfer.
+There is no cancel/unpublish workflow in MVP. Do not create a hidden workaround such as instructing the host to falsify the event date.
+
+Cancellation handling is a deferred product/policy decision. No refunds or ownership transfer in MVP.
 
 ---
 
 ## 9. AI Architecture and Cost Controls
 
-AI cost is a product constraint from day one.
+AI cost is a product constraint from day one, but creative quality materially affects conversion.
 
 ### 9.1 Strong-model usage
 
 Use the strongest appropriate multimodal/reasoning model for:
 
-1. Event Identity creation from prompt and inspiration
-2. Each concept `DesignSpec` (initial and redesign rounds)
+1. `generateEventIdentity(...)`
+2. `generateDesignIntent(...)` for each concept
 
-These are the only strong-model calls.
+These are the only frontier creative operations in MVP.
+
+The model does **not** generate the final renderer schema. Application code compiles DesignIntent to ResolvedDesignSpec.
+
+A thin provider capability layer is sufficient:
+
+```ts
+generateEventIdentity(...)
+generateDesignIntent(...)
+```
+
+Do not build a large abstraction framework prematurely.
 
 ### 9.2 Cheaper-model usage
 
-Use smaller/cheaper models where quality is sufficient for:
+Use smaller/cheaper models only where ordinary code is insufficient and quality remains acceptable:
+- structured event-detail extraction;
+- missing-field detection;
+- ambiguous date/time normalization;
+- candidate IANA timezone inference + confidence.
 
-- extracting structured event details from prose;
-- determining whether a required field is missing;
-- normalizing dates/times;
-- summarizing uploaded inspiration images into text.
+Validate timezone in code.
+
+Do not add models for renderer validation, motif placement, contrast, repair, or design compilation.
 
 ### 9.3 No-model operations
 
-Never call a model for: changing date/time/venue; hiding or reordering sections; selecting a curated color or typography adjustment; editing text; adding/removing guests, registry URLs, or native items; **validating model output** (that is a schema, §11.6); deriving contrast (that is code, §11.6); enforcing concept diversity (code, §11.5).
+Never call a model for:
+- auth draft persistence;
+- changing structured date/time/venue;
+- hiding/reordering sections;
+- applying host palette/typography overrides;
+- editing text;
+- guests/registry/cash-fund operations;
+- validating Event Identity/DesignIntent structure;
+- validating enum IDs;
+- assigning concept diversity constraints;
+- loading archetype defaults;
+- typography compatibility repair;
+- assigning motifs to slots;
+- dropping/logging incompatible motifs;
+- semantic palette compilation;
+- contrast derivation;
+- producing ResolvedDesignSpec;
+- enforcing generation limits;
+- gift state transitions;
+- product-image processing.
 
-### 9.4 Persistence
+### 9.4 Persistence and renderer reproducibility
 
-Persist the Event Identity and every `DesignSpec`. Do not re-send the original prompt, inspiration images, or event history for routine operations. Redesign calls receive the Event Identity, the current spec, the exclusion list, and the new feedback only.
+Persist:
+- Event Identity;
+- every generated DesignIntent;
+- selected archetype version for every concept;
+- every immutable ResolvedDesignSpec;
+- event-level manual design overrides separately.
 
----
+Do not re-send original raw inspiration for routine redesign after its summary is available.
+
+Do not recompile historical concepts merely because an archetype bundle changes.
+
+Renderer code may evolve/fix bugs while continuing to consume the old resolved schema/version.
+
+### 9.5 Compilation telemetry
+
+Each concept compilation may emit deterministic telemetry:
+
+```ts
+compilerRepairs[]   // field/requested/resolved/reason
+motifsDropped[]     // motif IDs that could not be placed
+```
+
+Typical repair reason:
+- `incompatible_with_archetype`
+- `unknown_enum`
+- `invalid_palette_member`
+- `slot_unavailable`
+
+Compiler repair must not trigger a model retry unless the DesignIntent is structurally invalid/unusable and cannot be repaired safely.
+
+### 9.6 Model usage and cost metering
+
+Every model call records, where exposed:
+- provider;
+- request ID;
+- model;
+- operation (`event_identity`, `design_intent`, structured extraction where metered);
+- input/cached/output/reasoning tokens;
+- estimated/actual cost;
+- latency;
+- success/failure;
+- generation round/concept index;
+- diversity assignment.
+
+Application usage should reconcile against provider usage where practical.
 
 ## 10. Generation Limits
 
-During alpha/beta, creative redesigns are effectively unlimited from the user's perspective. Do not expose credits or remaining-generation counters.
+During alpha/beta, creative redesign is **effectively unlimited from the user's perspective**. Do not expose credits or remaining-generation counters.
 
-Enforce **configurable backend** limits:
+Enforce configurable backend safety limits:
 
-- per-account concurrency (one generation in flight at a time);
-- per-event and per-account daily generation caps;
-- global spend ceiling with alerting;
-- anti-abuse (rate limits, signup throttling).
+- one generation batch in flight per event at a time;
+- per-event daily generation cap;
+- per-account daily generation cap for the acting owner/co-host;
+- global/project spend ceiling and alerts;
+- anti-abuse rate limits and signup throttling;
+- idempotency so retries/double taps do not duplicate expensive calls.
 
-Instrument every generation (§29). Use observed generation behavior, conversion, and actual AI cost of goods to set commercial launch limits. Do not impose an arbitrary user-facing cap before testing.
+A co-host does not receive an independent unlimited pool for the same event; event-level limits span all collaborators.
+
+Instrument every generation (§29). Use observed rounds per event, conversion, latency, model quality, and actual AI COGS to set commercial launch limits. Do not impose an arbitrary user-facing cap before testing.
 
 The guiding experience:
 
@@ -550,114 +944,406 @@ The guiding experience:
 
 ## 11. Design System and Rendering Architecture
 
-This section is the core architectural contract.
+This is the core renderer contract. `docs/event-renderer-system.md` is the implementation-level companion and wins on renderer-detail questions that do not conflict with this PRD.
 
 ### 11.1 The rule
 
-> AI chooses and configures from a constrained but expressive library of live design primitives. It does not generate arbitrary page layouts. Concept previews use the production renderer itself. Selecting a concept persists its `DesignSpec`; there is no separate website-generation step. Concept diversity is enforced programmatically, not solely through model instructions. Every archetype renders without a photo.
+> **AI expresses creative intent. Versioned archetype bundles + deterministic compiler build the event.**
 
-### 11.2 DesignSpec
+The model never emits arbitrary HTML/layout/CSS or treatment overrides.
 
-The model returns **IDs and values**, never layout prose.
+The renderer must be expressive enough that concepts remain visibly distinct even when palette and tone are constrained.
 
-```json
-{
-  "name": "Heritage Editorial",
-  "description": "Dark navy dominant, split hero, traditional serif, structured spacing.",
-  "heroArchetype": "editorial_split",
-  "eventDetailsTreatment": "stacked_editorial",
-  "rsvpTreatment": "contrast_panel",
-  "registryTreatment": "retailer_tiles",
-  "tonalDirection": "dark",
-  "palette": {
-    "primary": "#1B2A41",
-    "secondary": "#F3EDE3",
-    "accent": "#2F4F3E",
-    "surface": "#FAF7F2"
-  },
-  "typographyPairing": "heritage_serif_clean_sans",
-  "density": "spacious",
-  "imageTreatment": "editorial",
-  "motifs": ["plaid_restrained", "equestrian_line"],
-  "ornamentation": "restrained",
-  "borderTreatment": "hairline",
-  "cardTreatment": "flat_bordered",
-  "buttonTreatment": "solid_rounded_sm"
+### 11.2 DesignIntent — model contract
+
+Exactly six creative dimensions:
+
+```ts
+DesignIntent {
+  heroArchetype:
+    | "editorial_split"
+    | "centered_statement"
+    | "full_bleed_visual"
+    | "framed_invitation"
+    | "typography_first"
+    | "layered_editorial"
+
+  tonalDirection:
+    | "light"
+    | "mid"
+    | "dark"
+
+  palette: {
+    colors: string[]   // 3–5 valid hex colors
+    dominant: string   // must be a member of colors[]
+  }
+
+  typographyPairing: string   // curated ID
+  density: "compact" | "balanced" | "spacious"
+  motifs: string[]            // curated IDs
 }
 ```
 
-Every field except `name`, `description`, and palette hex values is an enum defined in code. Exact enum names may change during implementation; the shape does not.
+There is **no model `overrides` block in MVP**.
 
-### 11.3 Hero archetypes (MVP library)
+### 11.3 ArchetypeDefinition — versioned bundle
 
-Six archetypes. Not dozens.
+Conceptual code/config shape:
 
-| ID | Description | Without a photo |
-| --- | --- | --- |
-| `editorial_split` | Image on one side, typography/details on the other | Image slot becomes a motif/pattern panel |
-| `centered_statement` | Large centered title, decorative motif background, CTA below | Native (no image needed) |
-| `full_bleed_image` | Large visual background with overlaid event information | Background becomes texture/gradient with motif |
-| `framed_invitation` | Hero composed like a physical invitation card | Native |
-| `typography_first` | Minimal imagery, large expressive typography, whitespace | Native |
-| `layered_editorial` | Image with overlapping content card | Image slot becomes a motif/pattern panel |
+```ts
+ArchetypeDefinition {
+  id
+  version
 
-**Every archetype must render as a finished design with no host-uploaded photo.** Most hosts will not upload one. A host who uploads a photo later does not change archetype; the slot fills.
+  defaults {
+    eventDetailsTreatment
+    rsvpTreatment
+    registryTreatment
+    guestSurfaceComposition
 
-### 11.4 Section treatments and motif vocabulary
+    visualTreatment
+    ornamentation
+    borderTreatment
+    cardTreatment
+    buttonTreatment
+  }
 
-Each MVP section has 2–3 treatments:
+  compatibleTypographyPairings[]
 
-- **Event Details:** `structured_cards`, `stacked_editorial`, `split_panel`
-- **RSVP:** `standalone_cta_panel`, `embedded_card`, `contrast_panel`
-- **Registry:** `retailer_tiles`, `card_grid`, `featured_blocks`
+  motifSlots[] {
+    id
+    role        // field | frame | band | divider | accent
+    maxUses
+    priority
+  }
+}
+```
 
-**Motifs** are an enumerated vocabulary of vector assets and textures maintained in code (e.g. `plaid_restrained`, `gingham`, `botanical_line`, `stripe_classic`, `deco_border`, `linen_texture`, `equestrian_line`). Because site imagery is host-uploaded only, motifs, typography, palette, and archetype carry all of the visual distinctness. The motif library is a design deliverable, not an afterthought. The model picks motifs from the vocabulary; it does not invent them.
+Treatment compatibility matrices are deliberately **not** required in MVP because the model/host cannot override those treatment defaults.
 
-**Typography pairings** are an enumerated list of curated compatible pairs using self-hosted or Google Fonts.
+### 11.4 Archetypes
 
-### 11.5 Concept diversity, enforced in code
+MVP vocabulary reserves six:
 
-Three concepts must be materially different. Enforce after the model responds, as **hard constraints**:
+| ID | Core composition intent |
+| --- | --- |
+| `editorial_split` | Asymmetric editorial hero and split/panel rhythm. |
+| `centered_statement` | Formal centered statement composition. |
+| `full_bleed_visual` | Full-surface pattern/texture/gradient field. |
+| `framed_invitation` | Refined physical-invitation framing and symmetry. |
+| `typography_first` | Scale/alignment/whitespace/type carry the design. |
+| `layered_editorial` | Overlapping planes/cards and editorial depth. |
 
-1. Distinct `heroArchetype` across all three.
-2. Distinct `tonalDirection` (light / dark / mid) across all three.
-3. Different palette family **only when the prompt leaves color open** (`colorsExplicitlyConstrained == false`). When colors are explicitly constrained ("navy, cream, and forest green only"), honor them and vary **dominance and contrast** within those colors instead. Never violate the user's explicit color direction to satisfy diversity.
-4. Preferably distinct typography pairing category, unless it conflicts with the prompt.
+**Implementation gate:** do not build archetypes 4–6 merely because the enum exists. The first three (`editorial_split`, `framed_invitation`, `typography_first`) must pass the renderer tests in §11.11 under the new compiler contract before the remaining three earn implementation.
 
-Worked example for a Ralph Lauren-style prompt, all honoring navy/cream/green:
+### 11.5 MotifDefinition and role-based placement
 
-- **Heritage Editorial** — navy dominant, `editorial_split`, traditional serif, structured spacing.
-- **Winter Estate** — cream dominant, `framed_invitation`, softer serif, botanical/equestrian accents.
-- **Modern Club** — white/cream dominant with navy accents, `typography_first`, oversized type, restrained ornament.
+Each motif asset declares:
 
-**Repair is deterministic and free.** If constraints fail, the backend swaps the colliding concept's archetype (or tonal direction) to the next eligible value rather than calling the model again. At most one model retry. Never show three near-identical concepts.
+```ts
+MotifDefinition {
+  id
 
-**Redesign exclusions.** Each redesign round receives the list of previously shown `heroArchetype + tonalDirection` combinations and the backend excludes them unless the eligible set is exhausted.
+  supportedRoles[]  // field | frame | band | divider | accent
 
-A weighted diversity score (hero heavily weighted, tonal direction heavily, typography medium, section treatments medium, palette distance contextual) may replace the hard rules once real outputs have been observed. Start with the hard rules.
+  colorChannels[] {
+    semanticToken
+    minOpacity
+    maxOpacity
+  }
 
-### 11.6 Validation and contrast are code, not models
+  maxPlacements     // normally 1 or 2
+}
+```
 
-- Validate every `DesignSpec` with structured output against the enum schema. Map any unknown ID to a default in code.
-- The model picks palette hex values; the renderer **derives** text-on-primary, text-on-surface, button states, and borders with a contrast check that adjusts rather than rejects. No concept can render unreadable text.
+Initial vocabulary may include:
+- `plaid_restrained`
+- `gingham`
+- `botanical_line`
+- `stripe_classic`
+- `deco_border`
+- `linen_texture`
+- `equestrian_line`
+- `scallop_subtle`
+- `star_celestial`
+- `ribbon_line`
 
-### 11.7 Imagery
+The compiler:
+1. iterates requested motifs deterministically;
+2. matches supported roles to available archetype slots;
+3. respects slot and motif placement caps;
+4. persists resolved placements;
+5. drops any unplaceable motif;
+6. records dropped IDs in compilation telemetry.
 
-- **Site imagery is host-uploaded only.** No stock, no AI-generated imagery in MVP.
-- **Why generated imagery is excluded:** it is deferred, not forbidden. A single generated hero illustration per concept would be the largest quality lever available and costs cents; it is excluded from MVP to keep scope and brand-safety review small. Revisit after launch.
-- **Inspiration imagery** (uploads) feeds the Event Identity only and never appears on the site.
+No motif silently disappears.
 
-### 11.8 Testing
+### 11.6 Typography
 
-Because archetypes and treatments are enumerable, the visual test suite is a matrix: every hero archetype × with/without photo × each tonal direction × each density, plus every section treatment. Render the matrix at mobile and desktop widths and diff it in CI. This is the primary defense against a redesign breaking mobile.
+Typography pairings are curated IDs with:
+- display family;
+- body family;
+- fallback;
+- weights;
+- category;
+- character support;
+- tracking/scale bounds.
 
----
+Each archetype declares compatible pairings.
+
+The diversity planner should prefer distinct typography **categories** across a concept batch when compatible, especially when tone is constrained.
+
+If a generated pairing is incompatible with the assigned archetype, repair deterministically to the archetype's approved default/nearest same-category choice and record the repair.
+
+Never allow the model to output raw font-family strings.
+
+### 11.7 Semantic palette compiler
+
+Archetypes never consume raw DesignIntent palette roles such as `dominant` directly as backgrounds/text/buttons.
+
+Inputs:
+- DesignIntent palette colors;
+- dominant color;
+- tonal direction.
+
+Output semantic tokens such as:
+
+```text
+eventBg
+heroBg
+surface
+surfaceAlt
+
+text
+textMuted
+
+accent
+accentText
+
+buttonBg
+buttonText
+
+border
+focus
+
+error
+errorText
+```
+
+Compiler requirements:
+- tonal direction owns the background strategy;
+- use perceptual color operations (e.g. OKLCH or equivalent) rather than naive RGB lightening;
+- preserve supplied hue/chroma intent where practical;
+- derive tints/shades from supplied palette rather than inventing unrelated theme colors;
+- every normal text/background pair used by the renderer clears WCAG AA 4.5:1;
+- large text may use the appropriate 3:1 threshold;
+- non-text interactive/focus boundaries meet 3:1 where applicable;
+- button text/background clears 4.5:1;
+- muted normal-size text still clears 4.5:1;
+- when a same-hue adjustment cannot yield a visually acceptable accessible result, compiler may choose the nearest derived neutral/on-color from the supplied palette family;
+- validate all required pairs after compilation.
+
+The palette-control regression from the first renderer experiment must become a unit test: navy-on-navy text/button states are impossible by construction.
+
+### 11.8 ResolvedDesignSpec — renderer base input
+
+The compiler persists a complete immutable resolved object. Conceptual shape:
+
+```ts
+ResolvedDesignSpec {
+  schemaVersion
+
+  archetypeId
+  archetypeVersion
+
+  tonalDirection
+  typographyPairing
+  typographyCategory
+  density
+
+  eventDetailsTreatment
+  rsvpTreatment
+  registryTreatment
+  guestSurfaceComposition
+
+  visualTreatment
+  ornamentation
+  borderTreatment
+  cardTreatment
+  buttonTreatment
+
+  motifPlacements[] {
+    motifId
+    slotId
+    role
+    resolvedChannels
+  }
+
+  semanticTokens {
+    eventBg
+    heroBg
+    surface
+    surfaceAlt
+    text
+    textMuted
+    accent
+    accentText
+    buttonBg
+    buttonText
+    border
+    focus
+    error
+    errorText
+  }
+}
+```
+
+The generated concept renderer reads the `ResolvedDesignSpec`, not current archetype defaults and not DesignIntent.
+
+Event-level host manual overrides are applied as a separate deterministic layer after selection:
+- curated palette override;
+- curated typography pairing override.
+
+Those overrides never mutate the concept record.
+
+### 11.9 Guest-surface component system
+
+Themed guest components include at minimum:
+
+```text
+EventButton
+EventField
+EventTextarea
+EventCard
+EventNotice
+EventSheet
+EventOTPInput
+EventChoiceGroup
+EventPartyCard
+EventRegistryCard
+EventGiftCard
+EventConfirmation
+EventAccessGate
+EventFooter
+EventSectionFrame
+```
+
+They consume event semantic tokens and resolved treatments, never application UI tokens.
+
+The semantic guest flow remains predictable:
+
+```text
+access gate when private
+→ name lookup
+→ optional collision resolution
+→ SMS OTP when phone-backed
+→ party attendance
+→ questions
+→ submit
+→ confirmation
+```
+
+Archetype-owned `guestSurfaceComposition` determines desktop composition/framing around that fixed semantic flow.
+
+**Mobile convergence is accepted.** At ~390px, many multi-column guest surfaces collapse into a semantic stack. Mobile distinction should come from typography, framing, component skin, motifs, section surfaces, density, and hierarchy—not forced alternative information architectures.
+
+### 11.10 Concept diversity
+
+For each batch:
+
+1. honor Event Identity compatibility first;
+2. assign distinct eligible archetypes whenever possible;
+3. assign distinct compatible tonal directions when the brief permits;
+4. when compatible, assign/prefer distinct typography categories;
+5. use motifs and density as additional levers;
+6. vary palette dominance only within the user's color constraints.
+
+Principle:
+
+> **AI defines what fits. Code guarantees meaningful separation. Explicit user intent beats diversity for diversity’s sake.**
+
+Redesign should prefer unseen compatible intent combinations but never dead-end when combinations are exhausted.
+
+### 11.11 Renderer proof gates
+
+The renderer must be able to fail.
+
+**Brief 1: constrained heritage**
+- same navy/cream/forest-green constrained brief for all concepts;
+- first three archetypes;
+- same event content;
+- full guest surfaces at 390 and 1280;
+- grayscale toggle;
+- palette/tone control.
+
+Pass only if:
+- A/B/C are clearly different at both widths;
+- they remain recognizably different in grayscale;
+- B is more different from A than palette/tone-only control is;
+- guest surfaces feel themed rather than generic;
+- at least 3 of 5 structural axes differ pairwise where expected:
+  1. hero composition;
+  2. typography hierarchy;
+  3. section rhythm;
+  4. motif behavior;
+  5. component treatment.
+
+**Brief 2: tone constrained**
+- light/airy brief;
+- all three `tonalDirection = light`;
+- prove archetype + typography + motif + density can still separate concepts.
+
+**Five focused swap/compiler tests**
+1. same creative brief, archetype swapped → different site;
+2. same archetype, typography swapped → same site, different voice;
+3. same archetype, motifs swapped → same structure, different ornamental expression/slot usage;
+4. same structure, tone/palette changed → accessible semantic compiler output; no invalid contrast;
+5. incompatible intent → deterministic repair + log, no model retry.
+
+Regression expectation after compiler refactor:
+- A/B/C should remain within approved visual-diff tolerance;
+- the original palette-control panel is expected to change because broken contrast must be fixed.
+
+### 11.12 Imagery boundaries
+
+**Private inspiration**
+- AI input only;
+- private storage;
+- short-lived raw assets after successful processing/retry window;
+- never auto-published.
+
+**Published decorative imagery**
+- not supported in MVP;
+- no hero/event photos;
+- no stock;
+- no AI-generated decorative imagery.
+
+**Native registry thumbnails**
+- content exception;
+- safely fetched/normalized/stored when possible;
+- never retailer-hotlinked;
+- themed placeholder when unavailable.
+
+### 11.13 Visual regression
+
+Once an archetype is implementation-approved:
+- mobile ~390px;
+- desktop ~1280px;
+- supported tones;
+- supported density values;
+- representative motif placements;
+- guest access/RSVP/error/confirmation/registry states;
+- palette compiler regression cases.
+
+Do not create a combinatorial screenshot matrix for impossible model combinations. Test the **actual bundled architecture** and allowed manual overrides.
 
 ## 12. Guest List and RSVP
 
 ### 12.1 Philosophy
 
-MVP RSVP is **invite-only**. Supported entry: manual and CSV. A public site may be viewable publicly, but RSVP submission must map to an invited party.
+MVP RSVP is **invite-only**. Supported host entry: manual guest-party entry and CSV import. A public event may be viewable publicly, but every RSVP submission must map to an invited party.
+
+Mobile phone is the strong default for party identity and communication, but the system needs a narrow operational escape hatch rather than failing an entire event because one relative has no usable phone.
 
 ### 12.2 Guest data
 
@@ -665,16 +1351,17 @@ MVP RSVP is **invite-only**. Supported entry: manual and CSV. A public site may 
 GuestParty {
   id
   eventId
-  displayName            // "The Ahmed Family"
+  displayName
   primaryContactName
-  phone?                 // preferred contact field
+  phone?                 // expected/default; may be absent only in needs-phone/no-phone flows
   email?                 // optional fallback
-  contactConsentSource   // host_attested | guest_confirmed | none
+  noPhoneAvailable       // explicit collaborator override; default false
+  contactConsentSource
   maxAdults
   maxChildren
   plusOneAllowed
   rsvpStatus
-  submittedAt
+  submittedAt?
   updatedAt
 }
 
@@ -682,85 +1369,136 @@ GuestPerson {
   id
   partyId
   name
-  type                   // adult | child | plus_one
+  type                    // adult | child | plus_one
   attendanceStatus
-  mealChoice
-  dietaryRestrictions
-  notes
+  mealChoice?
+  dietaryRestrictions?
+  notes?
 }
 ```
 
-Both phone and email are optional. Hosts may import guests with neither.
+Derived contact state:
+
+- **Ready:** `phone` exists.
+- **Needs phone:** `phone` missing and `noPhoneAvailable == false`.
+- **No phone available:** `phone` missing and `noPhoneAvailable == true`.
+
+CSV import must **not reject the entire file** because individual rows lack a phone. Import valid party data and flag missing-phone parties as **Needs phone**. Owner/co-host then either adds a phone number or explicitly marks **No phone available** for that party.
+
+Manual party creation should require either a phone number or the explicit **No phone available** acknowledgement before the party is considered RSVP-ready.
+
+Do not require phone-number uniqueness across parties; shared family numbers may exist. Party identity is not the phone number alone.
 
 ### 12.3 Household/party grouping
 
-Support party invitations: a family as one party; two named adults plus children; a named guest plus optional plus-one. The RSVP UX makes it obvious who is included.
+Support party invitations: family as one party; two named adults plus children; named guest plus optional plus-one. RSVP UX makes it obvious who is included.
 
 ### 12.4 RSVP configuration
 
-Host configures: deadline; plus-one per party; adults/children per party; custom questions; meal choices; dietary-restriction field; optional notes.
+Owner/co-host configures: deadline; plus-one per party; adults/children per party; custom questions; meal choices; dietary-restriction field; optional notes.
 
-### 12.5 Guest identification: name lookup
+### 12.5 Guest identification: name lookup + conditional SMS verification
 
-This is the wedding-website convention and the MVP mechanism.
+1. Guest opens RSVP and enters their name.
+2. Fuzzy match against invited party members. On collisions, ask for enough additional name detail to identify the intended party.
+3. After a match, show only the minimum first names needed to recognize the party. Never show phone/email.
+4. If the matched party has a phone, **SMS OTP is required** before the guest can view/submit that party's RSVP.
+5. If the party is explicitly `noPhoneAvailable == true`, allow name-lookup-only RSVP as the accepted MVP escape hatch.
+6. If the party is **Needs phone**, do not expose the party RSVP. Show a neutral message directing the guest to contact the host; the collaborator must fix the phone or mark the no-phone override.
+7. Guest submits attendance/questions after verification/allowed fallback.
 
-1. Guest opens the RSVP section and types their name.
-2. Fuzzy match against party members. On collision, ask for a last name.
-3. After a match, show **first names only** of the party members. Never show contact info.
-4. **Optional SMS verification.** If the party has a phone on file, offer "Verify it's you" with a one-time code to that number. The host can require this for private events. A party without a phone falls back to plain name lookup. Because the guest initiates the code, this does not depend on consent status.
-5. Guest responds attending/not attending per member, completes questions, submits.
+**OTP abuse protection** is mandatory:
 
-### 12.6 Confirmation and updates
+- cooldown/rate limit per `GuestParty` phone (for example a small number per hour);
+- rate limit per requester IP/device/session;
+- event-level/global burst protection;
+- expiring, one-time-use codes;
+- verification-attempt cap.
+
+Typing another guest's name must not allow an attacker to repeatedly spam that guest's phone.
+
+### 12.6 Lightweight guest-party session
+
+Successful OTP verification establishes a lightweight guest session scoped to:
+
+```text
+eventId + partyId
+```
+
+The no-phone fallback may establish the same scoped session after successful name lookup.
+
+Requirements:
+
+- no guest account;
+- secure/httpOnly cookie where appropriate or equivalent signed session mechanism;
+- signed/scoped so it cannot be changed into another event/party;
+- reasonable expiration through the event window;
+- contains no unnecessary PII in client-trusted form;
+- reused by RSVP updates and registry click/purchase-intent logging;
+- SMS magic links establish/refresh the same party session rather than inventing a second identity system.
+
+### 12.7 Confirmation and updates
 
 After submission show a themed confirmation:
 
 > **You're all set. We can't wait to celebrate with you.**
 
-If a phone is on file, text a **magic link** to the guest so they can update their RSVP later without repeating lookup. Guests without a phone update via name lookup again. Guests never need to contact the host to change a response.
+If a phone is available, text a signed magic link so the guest can return/update without repeating lookup + OTP. A guest can always repeat name lookup and the appropriate verification/fallback path.
 
-### 12.7 Host RSVP dashboard
+### 12.8 Owner/co-host RSVP management view
 
-Host/co-host sees: total invited; attending; not attending; no response; adult, child, and plus-one counts; meal choices; dietary restrictions; custom-question responses; and **guests with no contact info**, so the host knows who they must chase by hand.
+Show:
 
----
+- total invited;
+- attending;
+- declined;
+- no response;
+- adults/children/plus-ones;
+- meal/dietary/custom-question responses;
+- **Needs phone** parties;
+- **No phone available** parties;
+- communication/opt-out state where relevant.
+
+Keep this operational, not analytical.
 
 ## 13. Guest Communication
 
 ### 13.1 Channels
 
-- Phone and email are both **optional** guest contact fields; **phone is the preferred/default**.
-- **SMS is the primary channel** when the guest has a phone on file and consent is satisfied (§13.2).
-- **Email is the fallback** for guests with email but no phone.
-- Guests with neither receive nothing; the dashboard surfaces them (§12.7).
+- Phone is the preferred/default guest-party contact channel.
+- **SMS is primary** when a usable phone is on file and the party has not opted out.
+- Email is optional.
+- Email may be used when a party is explicitly `noPhoneAvailable`, or as fallback when an SMS **delivery attempt fails** and an email exists.
+- **Do not automatically fall back to email after the guest sends STOP or otherwise opts out.** In MVP, an opt-out suppresses automated platform event messaging to that party across channels until they opt back in.
+- Parties in **Needs phone** state receive no automated messaging until corrected/overridden.
 - Initial invitations remain outside the platform.
 
 ### 13.2 Consent
 
-The main use of SMS is reminding guests who have not responded, and those guests have never interacted with the platform. Guest-confirmed consent therefore cannot be a precondition for reminders.
+The main use of SMS is reminding invited guests who may not yet have interacted with the platform, so guest-confirmed consent cannot be the only precondition.
 
 MVP consent model:
 
-- **Host attestation at import:** "I have permission to contact these guests about this event." Recorded per import.
-- **STOP handling** on every message; opt-outs are honored immediately and shown to the host.
-- **Per-event message cap** (configurable, small; e.g. five host-initiated sends per event) so no event becomes a spam campaign.
+- **Host attestation:** before using platform messaging, owner/co-host confirms they have permission to contact guests about this event.
+- **STOP/opt-out handling:** honor opt-outs immediately, persist the status, and show it to collaborators.
+- **Per-event host-initiated message cap** (configurable and deliberately small) so the event cannot become a spam campaign.
 - Messages are transactional and event-specific only.
-- A guest who RSVPs or requests a verification code upgrades their record to `guest_confirmed`.
+- A guest who completes OTP/RSVP may upgrade the record to `guest_confirmed` where useful, but that does not erase the need to honor future opt-out.
 
 ### 13.3 Operational notes
 
-- US A2P 10DLC registration takes days to weeks and requires a business entity. Start it before it is needed.
-- Carriers filter link-heavy messages from new senders; keep messages short with one link.
-- International numbers are out of scope unless trivial.
+- US A2P 10DLC registration/compliance may require lead time/business setup; start it before production messaging is needed.
+- Keep messages short, event-specific, and link-light.
+- International SMS remains out of scope unless trivial.
 - Per-message cost is absorbed by the publish fee.
+- Delivery failures should be recorded distinctly from opt-outs because only delivery failure may trigger email fallback.
 
 ### 13.4 Reminders and announcements
 
-- **Reminders:** to non-responders only. "Reminder: please RSVP by December 1."
-- **Announcements:** to all invited guests. Time changed, venue detail updated, event reminder.
-
-Keep these basic. No marketing automation.
-
----
+- **Reminders:** non-responders only. Example: `Reminder: please RSVP by December 1.`
+- **Announcements:** invited guests according to the selected audience. Example: time changed, venue detail updated, event reminder.
+- Suppress opted-out parties.
+- Keep these basic. No marketing automation.
 
 ## 14. Event Privacy and Access
 
@@ -770,32 +1508,52 @@ Public or private.
 
 ### 14.2 Private event gate
 
-A private event requires an event code. The gate is a **fixed rule with nothing for the host to configure**:
+A private event requires a short human-shareable event code. The guest-facing gate is fixed:
 
-- **Visible before the code:** the hero, showing event name, hosts, and date.
-- **Locked behind the code:** venue address, event details, RSVP, registry, cash fund.
+- **Visible before the code:** finished hero showing event name, hosts, and date.
+- **Locked behind the code:** venue/address, event details, RSVP, registry, cash fund.
 
-The locked hero is the referral surface and must look finished. Private events carry `noindex`.
+Private events carry `noindex`.
 
-### 14.3 RSVP remains invite-only
+**Storage and verification**
 
-`public` never means `anyone may RSVP`.
+- Store **one encrypted-at-rest event-code field** under an application-managed encryption secret/key.
+- Do not keep a separate hash + encrypted duplicate in MVP.
+- Authorized owner/co-host share UI may decrypt/reveal the code.
+- Guest verification decrypts the stored value server-side and compares against the submitted code using a constant-time comparison.
+- Never log plaintext event codes or send them to analytics.
+- Rate-limit attempts by event + requester/IP/device and add broader abuse protection.
+- Use a reasonably strong randomly generated human-shareable code rather than a trivial 4-digit PIN.
 
----
+The short shared code is not intended to be high-security authentication; attempt throttling and minimal pre-code exposure are the primary controls.
+
+### 14.3 Sharing
+
+For a private event, publish/share UI must surface together:
+
+- event URL;
+- QR code pointing to the URL only;
+- event code.
+
+The QR code must **not** embed/bypass the event code.
+
+### 14.4 RSVP remains invite-only
+
+`public` never means `anyone may RSVP`. Event visibility and RSVP eligibility are separate concepts.
 
 ## 15. Registry Product Model
 
-Three registry content types. No scraping, no sync.
+Three registry content types. No retailer synchronization.
 
 ### 15.1 External registry destination
 
-Host adds a registry URL (Amazon, Babylist, Target, Pottery Barn Kids, etc.). The site presents it as a themed card with an action like **Shop Amazon Registry**. Clicking leaves to the retailer.
+Host/co-host adds a registry URL (Amazon, Babylist, Target, Pottery Barn Kids, etc.). The site presents it as a themed destination card with an action like **Shop Amazon Registry**. Clicking leaves to the retailer.
 
-The retailer remains authoritative for item list, purchase status, quantities, returns, checkout, and benefits. The platform does not claim item-level synchronization and never polls or scrapes to sync.
+The retailer remains authoritative for item list, purchase status, quantities, returns, checkout, and registry benefits. The platform does not claim item-level synchronization and never polls/scrapes external registries for state.
 
 ### 15.2 Native item
 
-For gifts that are not on a registry (an Etsy blanket, a boutique crib, a local shop item, anything not on Amazon), the host pastes a product URL and the platform creates a native gift card.
+For gifts that are not represented adequately by an external registry—or any specific product the owner/co-host wants surfaced directly—the collaborator pastes a product URL and the platform creates a native gift card.
 
 ```ts
 NativeRegistryItem {
@@ -804,24 +1562,58 @@ NativeRegistryItem {
   retailerName
   productUrl
   title
-  imageUrl?
+  productImageAssetId?   // normalized platform-owned thumbnail asset
   priceDisplay?
   requestedQuantity
-  reservedQuantity
   purchasedQuantity
-  status
   createdAt
   updatedAt
 }
 ```
 
-**Metadata at add time.** One host-initiated fetch of the URL's Open Graph / basic metadata when pasted, prefilling a form the host confirms or edits. This is explicitly allowed and is not "retailer scraping": it is a single fetch, at add time, initiated by the host. **Manual entry of title, image, and price is the primary path** for Amazon and any site that blocks server fetches, not an edge case.
+**Product-image rule.** A native-item thumbnail is the one deliberate imagery exception in MVP because it is **product content**, not event design. The public event renderer still has no decorative/hero/site-photo system.
 
-The platform owns purchase-intent state for native items (§16).
+If no product image is available, render a polished themed placeholder using the event's registry/card treatment. The item must remain fully usable without an image.
+
+#### Add-time metadata and product-image fetch
+
+When a product URL is pasted, the backend may make **one host-initiated safe fetch flow** to prefill retailer/title/price-like display metadata and discover a candidate product image. The collaborator reviews/edits the result. **Manual entry is a first-class path**, especially for Amazon or any site that blocks server fetches.
+
+Do **not** hotlink the retailer image on the guest site. If a candidate remote product image is available:
+
+1. fetch it through the same centralized SSRF-safe network layer;
+2. validate that the response is an allowed raster image MIME type;
+3. enforce a strict byte-size and dimension/pixel cap before/while decoding;
+4. strip unneeded metadata;
+5. resize/compress to a normalized thumbnail asset (for example bounded around 512px and stored in a modern web format where supported);
+6. store the platform-owned copy in controlled object storage/CDN;
+7. render only the platform-owned asset URL.
+
+If the host manually enters an image URL, apply the **same safe fetch + normalization path**. There is no direct host image upload for native items in MVP.
+
+**SSRF/network safety requirements for all metadata/image URL fetches:**
+
+- allow only `http` / `https`;
+- reject credentials in URLs;
+- reject localhost, loopback, private, link-local, multicast/special-use, and cloud-metadata address ranges for IPv4/IPv6;
+- resolve DNS and validate the destination before connecting;
+- validate **every redirect** destination before following;
+- small redirect cap (for example 3);
+- short timeout (for example 5–8 seconds);
+- strict HTML response-size cap for metadata (for example 1–2 MB);
+- strict image-byte and decoded-pixel caps for thumbnails;
+- never forward host cookies, retailer credentials, authorization headers, or browser session data;
+- never execute page JavaScript;
+- parse only basic HTML/Open Graph metadata needed to prefill the form;
+- treat every failure/block/bot page/non-HTML metadata response as **manual-entry fallback**, not as a scraping problem to solve.
+
+This is a single user-triggered convenience read at add time, not a retailer sync system.
+
+The platform owns the honor-system purchase state for native items (§16).
 
 ### 15.3 Cash fund card
 
-Display-only card: payment handle(s) (Venmo, Zelle, etc.), suggested amounts, short blurb. No payment processing, no guest payments through the platform, no tracking of cash gifts in MVP.
+Display-only card: payment handle(s) (Venmo, Zelle, etc.), suggested amounts, short blurb. No guest payment processing and no cash-gift tracking in MVP.
 
 ```ts
 CashFund {
@@ -837,110 +1629,254 @@ CashFund {
 
 ### 15.4 Do not over-explain tracking differences
 
-No "Tracked by us" / "Tracked by Amazon" labels. The actions carry the meaning: `Shop Amazon Registry`, `Reserve & Buy`, `Send a gift`.
+No **Tracked by us / Tracked by Amazon** labels. Actions carry the meaning:
+
+- external registry → **Shop Amazon Registry** / retailer-specific equivalent;
+- native item → **Buy this gift**;
+- cash fund → **Send a gift** / service-specific equivalent.
+
+External-registry purchases remain authoritative only at the retailer. Native item purchased state is an MVP honor system (§16).
 
 ---
 
-## 16. Native Item Reservation Flow
+## 16. Native Item Honor-System Purchase Flow
 
-Reservation plus self-confirmation is already an honor system. Do not build a fraud or reconciliation engine around it.
+Native gift tracking intentionally uses an honor system for MVP. There is no reservation hold, expiration timer, public claim state, collision engine, or retailer verification.
 
-### 16.1 States
+### 16.1 Public state
+
+For quantity-one items, guest-facing state is conceptually:
 
 ```text
-AVAILABLE → RESERVED → PURCHASED
+AVAILABLE → PURCHASED
 ```
 
-### 16.2 Reserve & Buy
+For quantity > 1, availability is derived from:
 
-1. Guest taps **Reserve & Buy**.
-2. Platform creates a reservation immediately and reduces available quantity.
-3. Other guests see the item/quantity as unavailable ("Someone may be buying this").
-4. Guest is sent to the retailer page.
+```text
+remaining = requestedQuantity - purchasedQuantity
+```
 
-### 16.3 Confirmation
+There is no `reservedQuantity` in MVP.
 
-When the guest returns to the site, prompt:
+### 16.2 Buy this gift
+
+1. Guest taps **Buy this gift**.
+2. Backend writes a private `GiftBuyClick` before redirect when possible.
+3. If the guest has an active verified guest-party session (§12.6), associate the click with that `GuestParty`; otherwise keep only a device/session association where available.
+4. Redirect to retailer.
+5. **Do not change public availability merely because of the click.**
+
+This is intentionally honest: the platform does not know a purchase occurred yet.
+
+### 16.3 Self-confirmation on return
+
+If the same guest returns and the app can identify the prior click through the guest-party session and/or a lightweight device token, prompt:
 
 > **Did you buy this gift?**
-> `Yes, mark purchased` · `No, release it`
+> `Yes, mark purchased` · `No`
 
-Yes converts the reservation to purchased. No releases it.
+- **Yes:** increment `purchasedQuantity` by the clicked quantity (bounded by reasonable host-controlled quantity rules), mark the click confirmed, and update the public derived state.
+- **No:** record the response and leave public availability unchanged.
+- **No return/no response:** no state change.
 
-**Mechanism.** Guests have no account, so "on return" means a device-side token set at reserve time and checked when the site loads again. If the token is gone, the reservation simply expires on schedule.
+Do not assume a guest will return. The flow must remain valid when they do not.
 
-### 16.4 Expiry
+### 16.4 Private click log
 
-Unconfirmed reservations expire after a **fixed 72 hours** and the quantity becomes available again. Configurable server-side; not exposed to hosts in MVP.
+```ts
+GiftBuyClick {
+  id
+  eventId
+  itemId
+  partyId?
+  deviceTokenHash?
+  quantity
+  clickedAt
+  response?              // purchased | not_purchased | null
+  confirmedPurchasedAt?
+}
+```
 
-### 16.5 Quantities
+Purpose:
 
-Support requested quantities greater than one. Guest-facing UI may simplify counts.
+- product/UX instrumentation;
+- associate a self-confirmation when possible;
+- optionally give owner/co-host minimal operational context;
+- future input if evidence later justifies nudges/reservations.
 
-### 16.6 Host override
+Do not expose click intent publicly. Do not build a reservation UI around it.
 
-Owner/co-host can mark purchased, mark available, adjust quantity, and release a reservation. This is the integrity backstop.
+### 16.5 Owner/co-host override
 
-### 16.7 Known limitations (accepted)
+Owner/co-host can:
 
-- A guest who buys and never confirms sees the item return to available after 72 hours; a duplicate gift is possible.
-- A guest who buys directly from the retailer without tapping Reserve & Buy is not tracked.
-- No SMS nudges, click logs, late confirmation, or reconciliation in V1.
+- adjust requested quantity;
+- adjust purchased quantity;
+- mark available/purchased as appropriate;
+- correct mistakes.
 
-### 16.8 Purchaser identity
+This manual override is the MVP integrity backstop.
 
-Never exposed publicly. The **host can see** who reserved/purchased each native item; that is the thank-you list.
+### 16.6 Known limitations (accepted)
 
----
+- Two guests can buy the same available item before either confirms.
+- A guest can purchase at the retailer and never return to confirm; the platform may continue showing the item available.
+- A guest can buy directly from the retailer without first using **Buy this gift**; the platform will not know.
+- External registry purchases are never tracked item-by-item by this platform.
+
+These are accepted MVP limitations. Do not add reservation infrastructure to solve them unless real usage justifies it.
+
+### 16.7 Purchaser identity
+
+Never expose purchaser identity publicly.
+
+When a purchase confirmation can be associated with a verified `GuestParty`, owner/co-host may see that party/person in admin. If identity is unknown, show the purchase as host-confirmed/unknown rather than fabricating purchaser information.
 
 ## 17. Registry Guest Experience
 
-The registry section inherits the Event Identity: palette, typography, card treatment, image treatment, density, buttons. It contains themed external registry cards, native item cards, and the cash fund card. Do not imitate retailer branding beyond permitted name/logo usage.
+The registry section renders from the active concept's `ResolvedDesignSpec` plus any allowed event-level palette/typography override.
 
----
+It contains:
+- themed external-registry destination cards;
+- native item cards with `Buy this gift` and Available/Purchased state;
+- cash fund card.
+
+Registry components use the same event semantic tokens and archetype-owned component treatment as RSVP/access surfaces. They must not fall back to generic application cards/forms.
+
+Native product thumbnails remain content imagery and use normalized platform assets or a themed placeholder.
+
+Do not imitate retailer branding beyond permitted names/logos. Do not expose internal click logs or purchaser identity.
 
 ## 18. Event Details
 
-Core: event name; date; time; venue; address; hosts/parents; description/welcome text.
+Core content:
 
-AI may infer a small number of optional informational blocks from the prompt. **Do not** create separate FAQ, parking, dress-code, travel, or itinerary modules. Host can edit, hide, and reorder blocks. Keep this as content, not module expansion.
+- event name;
+- date;
+- start/end time;
+- venue;
+- normalized address;
+- hosts/parents;
+- description/welcome text.
 
----
+Timezone is inferred and stored as infrastructure data; it is not a normal guest-facing field.
 
-## 19. Admin Dashboard
-
-Optimized for **running the event**, not building a website. Mobile-first priorities:
-
-1. RSVP summary (invited / attending / declined / awaiting / no contact info)
-2. Guest responses and no-response list
-3. Event details
-4. Registry (including reservations awaiting confirmation)
-5. Announcements/reminders (with remaining sends against the cap)
-6. Site/design controls
-
-No analytics beyond these counts.
+AI may infer a small number of optional informational blocks from the prompt. **Do not** create separate FAQ, parking, dress-code, travel, or itinerary feature modules. Host/co-host can edit, hide, and reorder simple content blocks. Keep this as content, not module expansion.
 
 ---
+
+## 19. Creation Mode and Management Mode
+
+### 19.1 Creation Mode — pre-publish default
+
+Before publish, the primary workspace is the actual event site.
+
+Creation Mode provides:
+- production event renderer;
+- owner/co-host toolbar (`Design`, `Preview`);
+- contextual `Edit` / `Set up` / `Add` controls attached to stable collaborator anchors;
+- floating readiness/setup control;
+- focused sheets/panels for structured editing;
+- dedicated Guest workspace when needed.
+
+Do **not** route concept selection into a generic setup dashboard.
+
+### 19.2 Readiness checklist
+
+The setup sheet is navigation, not a wizard.
+
+**Needed to publish**
+- derives only from §23.1 blockers.
+
+**Recommended before sharing**
+- Guests;
+- Registry;
+- Co-host;
+- other useful optional work.
+
+An event can display `Ready to publish` while recommended items remain unfinished.
+
+### 19.3 Management Mode — operational home
+
+After setup/publish, an operational Event Home becomes useful.
+
+Priority:
+1. RSVP summary;
+2. guest responses / awaiting / Needs phone;
+3. Guests;
+4. Messages;
+5. Registry;
+6. Event sharing;
+7. Edit site.
+
+Owner additionally sees billing/co-host management/delete controls as permitted.
+
+Keep this operational rather than analytical. No vanity analytics.
 
 ## 20. Design Editing
 
-### 20.1 Direct editing
+### 20.1 Direct design editing
 
-Copy; imagery; section order; visibility; colors; curated typography pairings.
+Owner/co-host may directly adjust only:
+- curated palette variants;
+- curated typography pairings compatible with the selected archetype;
+- reset to generated concept design.
 
-### 20.2 Color controls
+Content operations remain separate:
+- copy;
+- section order;
+- section visibility.
 
-Constrained adjustments derived from the Event Identity: AI-proposed alternate palette variants; primary/accent from curated values; reset to AI-selected palette. Contrast is re-derived in code after any change.
+There are no published-site image controls.
 
-### 20.3 Typography
+### 20.2 Event designOverrides
 
-Curated compatible pairings only.
+Manual design edits live on `Event.designOverrides`, conceptually:
 
-### 20.4 No persistent AI copilot
+```ts
+designOverrides? {
+  palette?
+  typographyPairing?
+}
+```
 
-No permanently visible AI chat assistant. Reasons: cost, endless-redesign behavior, UX complexity, and conflict with the core principle.
+These deterministic overrides do not mutate `DesignIntent`, archetype version, or `ResolvedDesignSpec`.
 
----
+Applying a palette override runs the same semantic palette compiler/contrast validation.
+
+Applying typography validates against the selected archetype's compatible typography list.
+
+### 20.3 Selecting another concept
+
+Before publish, selecting another generated concept:
+- switches `activeConceptId`;
+- replaces generated design;
+- clears/resets event-level manual **design** overrides unless the product explicitly offers a compatible carry-forward path;
+- never changes event content, guests, RSVP, registry, privacy, or messaging data.
+
+### 20.4 No treatment-level editing
+
+Do not expose:
+- density;
+- motifs;
+- motif placement;
+- ornamentation;
+- section treatment;
+- guest composition;
+- borders;
+- cards;
+- buttons;
+- spacing;
+- archetype.
+
+These are renderer-owned.
+
+### 20.5 No persistent AI copilot
+
+AI reimagination exists only at concept granularity through `Try another direction`.
+
+No persistent chat assistant, token-level AI edit, or “make this button rounder” flow.
 
 ## 21. Site Structure
 
@@ -952,21 +1888,55 @@ Registry (external · native · cash fund)
 Footer ("Made with …")
 ```
 
-Single-scroll mobile-first by default. Avoid page fragmentation.
+Single-scroll mobile-first by default. Avoid page fragmentation. Optional simple information blocks may appear within the scroll but do not create separate pages/modules.
 
 ---
 
-## 22. Mobile-First Requirements
+## 22. Mobile-First and Responsive Requirements
 
-Design from ~390px outward.
+Design from approximately **390px outward**, but desktop is a first-class responsive layout.
 
-**Host from a phone:** create account; describe event; upload inspiration; answer follow-ups while concepts generate; review and select concepts; redesign; preview; edit details, text, images; manage guests; import CSV where the OS permits; view RSVP status; manage registries, native items, cash fund; send reminders/announcements; add co-host; publish; copy URL; access QR code.
+**Owner/co-host from phone**
+- prompt;
+- auth/save;
+- inspiration;
+- required details during generation;
+- concept review/selection;
+- redesign;
+- full-site reveal;
+- Creation Mode contextual editing;
+- readiness checklist;
+- guests/CSV where browser/OS permits;
+- RSVP;
+- registry;
+- communication;
+- privacy;
+- preview;
+- publish;
+- share;
+- post-publish management.
 
-**Guest from a phone:** access public/private site; read details; RSVP by name lookup; verify by SMS code; update RSVP via magic link; browse registry; reserve a native gift; leave for retailer; return and confirm.
+**Guest from phone**
+- private gate;
+- event details;
+- name lookup;
+- OTP;
+- RSVP/update;
+- registry;
+- purchase return confirmation.
 
-Desktop enhances space; it never has functionality unavailable on phone.
+**Desktop**
+- uses available space intentionally;
+- concept comparison may use three columns;
+- Creation Mode renders the actual responsive desktop event, not a 390px phone canvas;
+- contextual editors may become side panels;
+- guest management may use tables/detail panes;
+- Preview offers Mobile/Desktop width toggle and defaults to Mobile.
 
----
+**Guest surface convergence**
+At phone width, semantic RSVP order may converge across archetypes. Do not force artificial layout differences that hurt usability. Visual differentiation must survive through type, framing, motifs, surfaces, component treatment, hierarchy, and density.
+
+No critical product capability is desktop-only.
 
 ## 23. Event Lifecycle
 
@@ -975,40 +1945,171 @@ DRAFT → DESIGN_SELECTED → READY_TO_PUBLISH → PUBLISHED → PASSED
 ARCHIVED (internal, optional)
 ```
 
-- **Draft:** not public; generation and redesign allowed within backend limits.
-- **Published:** live; operational edits allowed; redesign disabled.
-- **Passed:** after the event date/time in the event's timezone: show "Thank you for celebrating with us," keep registry accessible. A host cancels by editing the date to the past.
+- **DRAFT:** private event draft; identity/concepts/redesign allowed.
+- **DESIGN_SELECTED:** `activeConceptId` points to a concept with immutable DesignIntent + archetypeVersion + ResolvedDesignSpec.
+- **READY_TO_PUBLISH:** deterministic requirements below are valid; payment may remain unsatisfied.
+- **PUBLISHED:** live; operations/content/allowed direct design overrides continue; AI redesign/concept switching disabled.
+- **PASSED:** event time has passed in stored IANA timezone; show thank-you state; registry remains accessible.
 
----
+### 23.1 Minimum READY_TO_PUBLISH requirements
+
+Minimum:
+- selected active concept with valid `ResolvedDesignSpec`;
+- event title;
+- event date;
+- start time;
+- venue/location display value;
+- valid stored IANA timezone;
+- RSVP deadline;
+- visibility;
+- encrypted access code when private;
+- valid event owner/account.
+
+Not required:
+- guest rows;
+- registry;
+- cash fund;
+- co-host;
+- inspiration;
+- announcements;
+- completed RSVP responses.
+
+Payment is separate:
+
+```text
+READY_TO_PUBLISH + payment satisfied → may PUBLISH
+```
+
+The Creation Mode readiness UI must reflect exactly this distinction. Optional work must not masquerade as a publish blocker.
+
+There is no cancellation workflow in MVP.
 
 ## 24. Domain Model
 
-Conceptual baseline, not an exact schema.
+Conceptual baseline, not an exact database schema.
 
 ```ts
-User { id, email, name, createdAt, updatedAt }
-
-Event {
-  id, ownerId, type /* baby_shower */, title, description,
-  date, startTime, endTime?, timezone,
-  venueName, address,
-  visibility /* public | private */, accessCodeHash?,
-  rsvpDeadline, status, slug,
-  activeConceptId,
-  messageSendsUsed,
-  publishedAt?, paidAt?, createdAt, updatedAt
+User {
+  id, email, name, createdAt, updatedAt
 }
 
-EventMember { eventId, userId, role /* owner | cohost */, createdAt }
+Event {
+  id, ownerId,
+  type /* baby_shower */,
 
-EventIdentity { eventId, ...fields from §7.5, createdAt, updatedAt }
+  title, description,
+  date, startTime, endTime?,
+  timezone,
+  venueName, address,
+
+  visibility /* public | private */,
+  accessCodeEncrypted?,
+
+  rsvpDeadline,
+  status,
+  slug,
+
+  activeConceptId?,
+
+  designOverrides? {
+    palette?,
+    typographyPairing?
+  },
+
+  messageSendsUsed,
+  publishedAt?, paidAt?,
+  createdAt, updatedAt
+}
+
+EventMember {
+  eventId, userId,
+  role /* owner | cohost */,
+  createdAt
+}
+
+PreAuthEventDraft {
+  id,
+  draftTokenHash,
+  prompt,
+  inspirationAssetIds[],
+  expiresAt,
+  createdAt
+}
+
+EventIdentity {
+  eventId,
+  creativeDirection,
+  toneKeywords[],
+  colorsExplicitlyConstrained,
+  paletteIntent,
+  tonalIntent,
+  toneExplicitlyConstrained,
+  compatibleTonalDirections[],
+  compatibleHeroArchetypes[],
+  compatibleTypographyCategories[],
+  visualMotifs[],
+  textureDirection,
+  typographyDirection,
+  copyTone,
+  designConstraints[],
+  inspirationSummary,
+  createdAt, updatedAt
+}
+
+InspirationAsset {
+  id, eventId?,
+  preAuthDraftId?,
+  storageKey,
+  mimeType, sizeBytes,
+  expiresAt?,
+  createdAt
+}
+
+DesignIntent {
+  heroArchetype,
+  tonalDirection,
+  palette /* { colors[], dominant } */,
+  typographyPairing,
+  density,
+  motifs[]
+}
+
+ResolvedDesignSpec {
+  schemaVersion,
+  archetypeId,
+  archetypeVersion,
+
+  tonalDirection,
+  typographyPairing,
+  typographyCategory,
+  density,
+
+  eventDetailsTreatment,
+  rsvpTreatment,
+  registryTreatment,
+  guestSurfaceComposition,
+
+  visualTreatment,
+  ornamentation,
+  borderTreatment,
+  cardTreatment,
+  buttonTreatment,
+
+  motifPlacements[],
+  semanticTokens
+}
 
 DesignConcept {
   id, eventId,
-  round,                 // 0 = initial, 1..n = redesign rounds
-  conceptIndex,          // 0..2 within a round
+  round,
+  conceptIndex,
+
   name, description,
-  designSpec,            // §11.2
+
+  designIntent,          // immutable
+  archetypeVersion,      // immutable
+  resolvedDesignSpec,    // immutable
+
   selectedAt?,
   createdAt
 }
@@ -1016,24 +2117,58 @@ DesignConcept {
 EventSection {
   id, eventId,
   type /* hero | event_details | rsvp | registry | simple_info */,
-  position, visible, content, styleOverrides /* constrained */
+  position, visible, content
 }
 
-GuestParty, GuestPerson   // §12.2
+GuestParty {
+  id, eventId, displayName, primaryContactName,
+  phone?, email?, noPhoneAvailable,
+  contactConsentSource,
+  maxAdults, maxChildren, plusOneAllowed,
+  rsvpStatus, submittedAt?, updatedAt
+}
 
-ExternalRegistry { id, eventId, retailerName, registryUrl, displayName, position, visible, createdAt }
+GuestPerson {
+  id, partyId, name, type,
+  attendanceStatus, mealChoice?, dietaryRestrictions?, notes?
+}
 
-NativeRegistryItem        // §15.2
+GuestPartySession? {
+  id?, eventId, partyId,
+  tokenHash?, expiresAt,
+  createdAt?, updatedAt?
+}
 
-CashFund                  // §15.3
+ExternalRegistry {
+  id, eventId, retailerName, registryUrl,
+  displayName, position, visible, createdAt
+}
 
-GiftReservation {
+NativeRegistryItem {
+  id, eventId, retailerName, productUrl,
+  title, productImageAssetId?, priceDisplay?,
+  requestedQuantity, purchasedQuantity,
+  createdAt, updatedAt
+}
+
+ProductImageAsset {
   id, eventId, itemId,
-  guestDeviceToken,
-  partyId?,               // when the guest has RSVP'd on this device
-  quantity,
-  status /* active | purchased | released | expired */,
-  expiresAt, purchasedAt?, createdAt, updatedAt
+  storageKey, mimeType,
+  width?, height?, sizeBytes?,
+  createdAt
+}
+
+GiftBuyClick {
+  id, eventId, itemId,
+  partyId?, deviceTokenHash?, quantity,
+  clickedAt,
+  response? /* purchased | not_purchased | null */,
+  confirmedPurchasedAt?
+}
+
+CashFund {
+  id, eventId, title, blurb,
+  handles[], suggestedAmounts[], visible
 }
 
 Message {
@@ -1045,336 +2180,605 @@ Message {
 }
 
 GenerationRun {
-  id, eventId, userId, round, model, inputTokens, outputTokens,
-  costEstimate, latencyMs, diversityRepaired: boolean, createdAt
+  id, eventId, userId,
+
+  provider, providerRequestId?,
+  operation /* event_identity | design_intent | structured_extraction */,
+  round?, conceptIndex?,
+
+  model,
+  inputTokens?, cachedInputTokens?, outputTokens?, reasoningTokens?,
+  costEstimateUsd?,
+  latencyMs,
+  success,
+
+  diversityAssignment?,
+  archetypeVersion?,
+  compilerRepairs?,
+  motifsDropped?,
+
+  createdAt
 }
 ```
 
----
+`ArchetypeDefinition`, `MotifDefinition`, typography definitions, and compiler rules are versioned application code/config rather than required database tables in MVP.
+
+### Generated-data immutability
+
+For a DesignConcept:
+- `designIntent` is immutable;
+- `archetypeVersion` is immutable;
+- `resolvedDesignSpec` is immutable.
+
+Renderer source code may still receive bug, accessibility, and responsive fixes.
+
+### Effective render state
+
+Base guest design comes from the selected concept's `resolvedDesignSpec`.
+
+Allowed `Event.designOverrides` are applied deterministically on top for palette/typography. They must use the same compatibility and semantic color compiler as generated concepts.
+
+Do not recompile the concept against current archetype defaults during normal rendering.
 
 ## 25. Permissions Matrix
 
 | Capability | Owner | Co-host | Guest |
 | --- | ---: | ---: | ---: |
 | View event | Yes | Yes | Yes |
-| Edit event details | Yes | Yes | No |
-| Edit text/images | Yes | Yes | No |
+| Edit event details/content | Yes | Yes | No |
+| Manage privacy/access code | Yes | Yes | No |
 | Manage guests / import CSV | Yes | Yes | No |
 | Manage RSVP questions | Yes | Yes | No |
-| View RSVP responses | Yes | Yes | Own party only |
-| Manage external registries, native items, cash fund | Yes | Yes | No |
-| Manage native item status | Yes | Yes | No |
+| View/manage RSVP responses | Yes | Yes | Own party only |
+| Manage external registries/native items/cash fund | Yes | Yes | No |
+| Manage native item purchase state | Yes | Yes | No |
 | Send reminders/announcements | Yes | Yes | No |
-| Direct design controls (colors, typography, sections) | Yes | Yes | No |
-| Enter initial design prompt / initial generation | Yes | No (joins after creation) | No |
-| Generate redesign concepts (before publish) | Yes | Yes | No |
-| Select concepts, including from gallery (before publish) | Yes | Yes | No |
-| Publish | Yes | No | No |
-| Manage co-hosts | Yes | No | No |
-| Billing / payment | Yes | No | No |
-| Delete event / ownership transfer | Yes | No | No |
+| Use direct design controls | Yes | Yes | No |
+| Add private inspiration for redesign | Yes | Yes | No |
+| Enter redesign feedback | Yes | Yes | No |
+| Generate redesign concepts before publish | Yes | Yes | No |
+| Browse/select concepts before publish | Yes | Yes | No |
+| Preview | Yes | Yes | Public/authorized view |
+| Publish after payment is satisfied | Yes | Yes | No |
+| Initiate/manage billing/payment | Yes | No | No |
+| Manage co-host access | Yes | No | No |
+| Delete/archive event | Yes | No | No |
+| Transfer ownership | Not in MVP | Not in MVP | No |
 
-Summary: **Owner** everything. **Co-host** everything except billing, co-host management, and delete/ownership-level actions (and publish in MVP, because payment is tied to it). **Guest** event, RSVP, and registry only.
+Owner/co-host design generation consumes the same event-level generation pool/limits. After publish, AI generation and concept switching are disabled for both.
 
 ---
 
 ## 26. Important UX Rules
 
-- **Never expose implementation complexity:** Event Identity, DesignSpec, archetype IDs, renderer, model tiers, backend limits, sync limitations, data model.
-- **No configuration fatigue:** describe → infer → ask only what's missing (while generating) → show concepts → select.
-- **Don't overbuild empty states.**
-- **Guests never need accounts.** Name lookup, optional SMS code, device tokens, magic links.
-- **No counters.** Never show remaining generations, credits, or message quotas to the owner beyond the announcement cap in the dashboard.
-
----
+- Landing page is the prompt.
+- Prompt/auth state must survive OAuth exactly.
+- Do not begin strong-model generation before authentication.
+- **Never expose implementation complexity:** Event Identity, DesignIntent, ResolvedDesignSpec, archetype IDs/versions, compiler repairs, motif slots, provider/model tiers, backend limits.
+- AI should remove decisions, not create more decisions.
+- Show concepts, then show the full site, then make that same site editable.
+- Do not send a newly activated host to a generic setup dashboard.
+- Creation Mode uses contextual editing on the event.
+- Setup progress distinguishes publish blockers from optional recommended work.
+- `Try another direction` is available from initial concepts, reveal, and Design before publish.
+- Redesign changes design only; event content/data remain untouched.
+- Concept generated data is immutable; renderer code may be fixed.
+- Inspiration images are never public site images.
+- Guests never need accounts.
+- No generation counters/credits during alpha/beta.
+- No public gift-reservation language/state.
+- Preserve mobile-first usability; use real desktop layouts on desktop.
+- Accept guest-layout convergence on mobile when required for usability.
+- Do not expose renderer-owned card/button/border/motif/treatment controls to hosts.
 
 ## 27. Safety / Integrity / Privacy
 
 - Never expose purchaser identity publicly.
-- Hash event access codes; no plaintext.
-- Never expose guest lists publicly; after name lookup show first names only.
+- **Private event code:** store one encrypted-at-rest representation only; never plaintext. Authorized reveal/validation happens server-side. Compare decrypted values in constant time. Never log/code-analytics plaintext. Rate-limit attempts.
+- Never expose guest lists publicly; after name lookup show only the minimum names required to identify a party.
+- Require SMS OTP before RSVP access when a phone exists; allow the explicit `noPhoneAvailable` name-lookup-only exception.
+- Rate-limit OTP sending **per party/phone** as well as per requester/IP/device and event/global burst.
+- A **Needs phone** party cannot expose RSVP details until fixed or explicitly marked no-phone.
 - Limit guests to their own party's information.
+- Guest-party sessions must be signed/scoped to event + party, expire reasonably, and contain no unnecessary client-trusted PII.
 - Co-host access is explicit, invitation-based.
-- SMS only under host attestation with STOP handling and per-event caps; honor opt-outs immediately.
-- No retailer scraping, bot evasion, or proxies. One host-initiated metadata fetch at add time is the only outbound fetch to retailers.
+- SMS uses the MVP attestation/opt-out model in §13. A STOP/opt-out must not be circumvented by automatically switching the same party to email.
+- No retailer scraping, bot evasion, proxy workarounds, or credential collection.
+- Product metadata and remote product-image fetches must use the centralized SSRF-safe utility/restrictions in §15.2.
+- Never render arbitrary retailer image URLs directly to guests; render only normalized platform-owned product thumbnails or a themed placeholder.
 - Never collect retailer credentials or request an Amazon/retailer login.
 - External checkout stays on retailer sites.
+- Do not represent honor-system native purchases as retailer-verified.
+- Inspiration uploads are private AI inputs, stored privately with strict limits and short raw-file retention; never automatically render them on the public event site.
 - Private events are `noindex`.
-
----
+- Use signed, scoped, expiring OTP/magic-link/session tokens; do not put sensitive guest data directly in client-trusted tokens.
 
 ## 28. Payment
 
-- Free to create, generate, preview.
+- Free to create, generate, redesign, and preview within backend safety limits.
 - **$49 one-time to publish.**
-- Initial implementation: mock/stub the gate; display the real price; allow internal/test users to simulate success; record `paidAt`.
-- No refunds, no transfers, no tiers. Do not spend MVP effort on billing architecture beyond the stub.
+- Initial implementation: mock/stub the gate; display the real price; allow internal/test users to simulate success; record `paidAt` or equivalent payment-satisfied state.
+- **Owner** initiates/manages payment.
+- Once payment is satisfied, owner or co-host may execute publish.
+- No refunds, transfers, subscriptions, or pricing tiers in MVP.
+- Do not spend MVP effort on billing architecture beyond the stub.
 
 ---
 
 ## 29. Analytics (Instrumentation, Not Dashboards)
 
+Suggested MVP instrumentation:
+
 ```text
-landing_cta_clicked
-signup_completed
+landing_prompt_started
+preauth_inspiration_uploaded
+create_event_clicked
+auth_started
+auth_completed
+preauth_draft_restored
+preauth_draft_restore_failed
+
 event_creation_started
 initial_prompt_submitted
 inspiration_uploaded
+inspiration_link_added
+inspiration_raw_cleanup
 followup_question_answered
-identity_generated            { latencyMs }
-concept_rendered              { round, index, latencyMs }
-concepts_generated            { round, latencyMs, diversityRepaired }
-concept_selected              { round, index }
-redesign_started              { round, hasFeedback }
+
+venue_timezone_inferred
+identity_generated
+
+concept_direction_assigned {
+  round,
+  index,
+  heroArchetype,
+  tonalDirection,
+  typographyCategory,
+  toneConstrained
+}
+
+design_intent_generated {
+  round,
+  index,
+  heroArchetype,
+  tonalDirection,
+  typographyPairing,
+  density
+}
+
+design_intent_compiled {
+  round,
+  index,
+  archetypeVersion,
+  repairCount,
+  motifsDroppedCount
+}
+
+concept_rendered
+concepts_generated
+concept_selected
+site_reveal_viewed
+make_it_yours_clicked
+
+creation_context_edit_opened { section, action }
+setup_checklist_opened
+publish_readiness_changed
+guest_workspace_opened
+
+redesign_started
+redesign_prompt_refined
+redesign_concepts_generated
 kept_current_design
 gallery_concept_selected
-generation_limit_hit          { limitType }
-preview_opened
-publish_gate_opened           { priceShown }
+generation_limit_hit
+
+preview_opened { width: mobile | desktop }
+
+publish_readiness_failed
+publish_gate_opened
 publish_gate_continued
 event_published
+
 guest_added
-csv_import_completed          { withPhone, withEmail, withNeither }
+csv_import_completed
+guest_no_phone_override_set
+
 rsvp_lookup_started
 rsvp_lookup_collision
+rsvp_otp_requested
+rsvp_otp_throttled
 rsvp_sms_verified
+guest_party_session_created
 rsvp_completed
-rsvp_updated                  { viaMagicLink }
+rsvp_updated
+
 external_registry_added
 external_registry_clicked
-native_item_added             { metadataFetched, manualEntry }
-native_item_reserved
+native_item_added
+native_product_image_fetch
+native_item_buy_clicked
 native_item_purchase_confirmed
-native_item_reservation_released
-native_item_reservation_expired
+native_item_purchase_declined
+native_item_host_override
 cash_fund_added
-message_sent                  { kind, channel, recipients }
+
+message_sent
+message_delivery_failed
 message_opt_out
 ```
 
-Every generation also writes a `GenerationRun` row with cost and latency. These rows, plus conversion, set commercial generation limits after beta.
+Every metered model call also writes a `GenerationRun`.
 
----
+Compiler repairs/dropped motifs belong on the associated concept-generation instrumentation and must never be silently discarded.
 
 ## 30. MVP Success Criteria
 
-A non-technical host can:
+A non-technical owner/co-host can:
 
-1. Land and understand the product quickly.
-2. Describe the baby shower in natural language.
-3. Optionally upload inspiration.
-4. Answer only required follow-ups, while concepts generate.
-5. See three clearly differentiated, high-quality concepts within the latency targets.
-6. Select one without design expertise, and that selection is the site.
-7. Redesign freely before publish and return to any earlier concept.
-8. Make simple edits without a page builder.
-9. Add guests manually or via CSV, with or without contact info.
-10. Configure and receive RSVP responses via name lookup.
-11. Add external registries, native items by URL, and a cash fund card.
-12. Let guests reserve and confirm native gifts.
-13. Send SMS reminders and announcements.
-14. Preview on a phone.
-15. Publish through the mocked $49 gate.
-16. Share one URL/QR code.
-17. Manage the event from a phone after publishing.
+1. Understand the product immediately from the landing composer.
+2. Describe the shower before creating an account.
+3. Authenticate without losing prompt or inspiration.
+4. Answer only genuinely missing required details while generation runs.
+5. Receive a persisted Event Identity.
+6. See three materially distinct concepts from live production rendering.
+7. Reject all three and request another direction without starting over.
+8. Select one and immediately see a convincing full-site reveal.
+9. Enter Creation Mode by making that same site editable.
+10. Complete required event setup without a wizard.
+11. Understand which items block publish and which are only recommended.
+12. Use contextual editing for details/RSVP/registry and dedicated workspace for guests.
+13. Redesign before publish without changing event content/data.
+14. Preview exact guest experience at mobile and desktop widths.
+15. Manage guests/RSVP/registry/comms from phone.
+16. Publish through the mocked/real-shaped $49 gate.
+17. Share URL/QR/code.
+18. Operate the event after publish.
+19. Let guests unlock, identify, verify, RSVP, update, and browse registry without accounts.
+20. Render a coherent themed guest experience across access, forms, errors, confirmation, registry, and passed state.
 
-The host should feel: "I described what I wanted and it basically built the event for me."
+Renderer architecture succeeds when:
+21. The model emits only six-field DesignIntent.
+22. Compilation deterministically produces accessible immutable ResolvedDesignSpec.
+23. Incompatible typography/motif inputs are repaired/dropped and logged without a model retry.
+24. The same constrained palette can still produce three unmistakably different sites.
+25. The same tonal direction can still produce three meaningfully different sites through archetype/type/motif/density.
+26. Palette/tone changes cannot produce invalid text/button contrast.
+27. Historical concepts do not change merely because archetype defaults later evolve.
 
----
+The host should feel:
+
+> **I described what I wanted and it basically built the event for me.**
 
 ## 31. Acceptance Criteria
 
-**AI creation and rendering**
+### Prompt, auth, and generation
+- [ ] Landing page contains the primary event composer.
+- [ ] User may write prompt/add inspiration before authentication.
+- [ ] Strong-model generation does not begin before auth succeeds.
+- [ ] Prompt and successful inspiration uploads restore exactly after OAuth/email auth.
+- [ ] Abandoned pre-auth draft/assets expire and remain private.
+- [ ] Required details are collected only when missing and while generation runs.
+- [ ] Venue-text timezone inference + validation + browser fallback works.
 
-- [ ] Natural-language description accepted; inspiration uploads and links optional.
-- [ ] Generation begins on prompt submit; required follow-ups are asked while it runs.
-- [ ] Event Identity stored structurally and streamed to the client.
-- [ ] Three concepts generated in parallel; each renders as soon as its spec arrives.
-- [ ] Latency targets in §7.7 met at p75.
-- [ ] Previews are live production-renderer components in a scaled frame; no screenshots or images.
-- [ ] Provisional preview content uses known event data.
-- [ ] Every `DesignSpec` validates against the enum schema; unknown IDs map to defaults.
-- [ ] Hard diversity constraints (§11.5) enforced in code with deterministic repair; at most one model retry.
-- [ ] Explicit color constraints in the prompt are honored across all three concepts.
-- [ ] Every hero archetype renders correctly with no photo.
-- [ ] Contrast is derived in code; no concept renders failing text contrast.
-- [ ] Selecting a concept persists its `DesignSpec`; no separate generation step exists.
+### Event Identity and diversity
+- [ ] Event Identity persists tone/color constraints and compatible archetype/tone/typography-category guidance.
+- [ ] Diversity planner assigns three distinct compatible archetypes whenever possible.
+- [ ] Tone diversity is used only when compatible with the brief.
+- [ ] Distinct typography categories are preferred across concepts when compatible, especially when tone is constrained.
+- [ ] Density/motif/palette dominance may provide additional diversity without violating explicit intent.
 
-**Redesign**
+### DesignIntent and compiler
+- [ ] Strong model returns only `heroArchetype`, `tonalDirection`, `palette`, `typographyPairing`, `density`, `motifs`.
+- [ ] Model cannot emit section/card/button/border/ornament/treatment overrides.
+- [ ] DesignIntent validates against schema.
+- [ ] Archetype bundle is loaded by explicit version.
+- [ ] Incompatible typography repairs deterministically and logs a compiler repair.
+- [ ] Motifs match only compatible declared slot roles.
+- [ ] Motif placement caps are enforced.
+- [ ] Unplaceable motifs are dropped and logged.
+- [ ] No compiler repair requires a model call.
+- [ ] Raw palette is never directly consumed as renderer background/text/button semantics.
+- [ ] Semantic palette compiler produces all required event tokens.
+- [ ] Required normal text/button contrast clears 4.5:1.
+- [ ] Required non-text/focus contrast clears applicable 3:1 thresholds.
+- [ ] Palette-control unit test proves navy-on-navy states are impossible.
+- [ ] Compiler persists immutable ResolvedDesignSpec.
+- [ ] DesignIntent + archetypeVersion + ResolvedDesignSpec all persist per concept.
+- [ ] Routine rendering never recompiles old concepts from current archetype defaults.
 
-- [ ] Owner or co-host can redesign repeatedly before publish, with optional feedback.
-- [ ] Previously shown archetype + tonal combinations are excluded by the backend.
-- [ ] Current design unchanged during review; owner may keep current design.
-- [ ] All generated concepts remain browsable and selectable in a gallery.
-- [ ] No user-facing generation counters or credits.
-- [ ] Backend concurrency, per-event, per-account, and spend limits are configurable and enforced.
-- [ ] Every generation logged with cost and latency.
-- [ ] Publish, billing, co-host management, and delete are not available to co-hosts.
-- [ ] Redesign and selection disabled after publish.
+### Concept experience
+- [ ] Three concepts use live production renderer.
+- [ ] Mobile later concept trees may lazy-mount without layout shift.
+- [ ] Initial concept screen includes one `Try another direction` action beneath the set.
+- [ ] Concept selection changes design only.
+- [ ] Concept selection leads directly to full-site reveal.
+- [ ] Reveal offers `Make it yours` and `Try another direction`.
+- [ ] `Make it yours` converts same site into Creation Mode rather than dashboard navigation.
 
-**Manual editing**
+### Creation Mode
+- [ ] Renderer sections expose stable collaborator-action anchors.
+- [ ] Contextual Edit/Set up/Add controls are app-styled and absent for guests.
+- [ ] Routine edits autosave.
+- [ ] Guest workspace returns to prior Creation Mode context.
+- [ ] Setup checklist separates publish blockers from recommended work.
+- [ ] `Ready to publish` can appear even if guests/registry are incomplete.
+- [ ] Design controls expose only curated palette/typography + reset/redesign.
 
-- [ ] Text, images, section order, visibility, curated colors, and curated typography pairings editable.
-- [ ] No free-form page builder exists.
+### Redesign
+- [ ] Redesign available from concepts/reveal/Design before publish.
+- [ ] Feedback/inspiration optional.
+- [ ] UI explicitly reassures that event content remains untouched.
+- [ ] Current concept remains active while new concepts are reviewed.
+- [ ] User can choose new, keep current, or refine again.
+- [ ] No user-facing credits/counters.
+- [ ] Post-publish AI redesign/concept switching disabled.
 
-**RSVP**
+### Renderer proof
+- [ ] First three archetypes pass constrained heritage test at 390 and 1280.
+- [ ] First three remain distinguishable in grayscale.
+- [ ] Archetype swap is clearly more visually significant than palette/tone-only control.
+- [ ] Guest surfaces are themed and coherent beyond hero.
+- [ ] Same-archetype typography swap reads as same site/different voice.
+- [ ] Motif swap changes slot usage/expression without changing structure.
+- [ ] Tone/palette control remains accessible after compiler.
+- [ ] Incompatible intent repairs deterministically and logs.
+- [ ] Light-only brief passes before remaining three archetypes are implemented.
+- [ ] Mobile guest flow may converge structurally without being considered a failure.
 
-- [ ] Manual add and CSV import work with phone, email, both, or neither.
-- [ ] Party grouping, plus-ones, adults/children work.
-- [ ] Deadline, meal choice, dietary field, custom questions configurable.
-- [ ] Name lookup with fuzzy match and last-name disambiguation; first names only after match.
-- [ ] Optional SMS one-time-code verification when a phone is on file; host can require it for private events.
-- [ ] Themed confirmation shown; magic link texted when a phone is on file.
-- [ ] Guest can update RSVP via magic link or repeat lookup.
-- [ ] Dashboard shows attending/declined/no-response/no-contact-info counts.
-- [ ] Open/public RSVP is not available.
+### RSVP
+- [ ] Manual add requires phone or explicit no-phone acknowledgement.
+- [ ] CSV with missing phone rows imports and flags Needs phone.
+- [ ] Guest lookup does not expose contact info.
+- [ ] Phone-backed party requires OTP.
+- [ ] OTP throttling includes party/phone and requester/event limits.
+- [ ] No-phone override path works.
+- [ ] Needs-phone party cannot expose RSVP.
+- [ ] Guest-party session scopes event + party.
+- [ ] RSVP confirmation + magic-link update path works.
+- [ ] RSVP remains invite-only.
 
-**Communication**
+### Registry
+- [ ] External registry is destination-only; no item sync claim.
+- [ ] Native item safe metadata/image attempt + manual fallback.
+- [ ] Product images normalized/stored, no retailer hotlinks.
+- [ ] Placeholder is themed.
+- [ ] Buy click does not reserve/change public availability.
+- [ ] Optional return confirmation can mark purchased.
+- [ ] Host/co-host may correct purchase quantity/state.
+- [ ] Purchaser identity is never public.
+- [ ] Cash fund processes no payment.
 
-- [ ] Host attestation captured at import; STOP handled; opt-outs honored and visible.
-- [ ] Reminders go to non-responders only; announcements to all invited.
-- [ ] SMS used when phone present; email fallback when only email present.
-- [ ] Per-event send cap enforced.
+### Messaging/privacy
+- [ ] Host attestation before platform messaging.
+- [ ] STOP/opt-out honored.
+- [ ] No email bypass after opt-out.
+- [ ] Private code stored encrypted once.
+- [ ] Private code attempts rate-limited.
+- [ ] Private hero visible before code; protected content remains locked.
+- [ ] QR does not bypass code.
 
-**Registry**
+### Roles/publishing
+- [ ] Co-host has near-parity event permissions.
+- [ ] Owner-only billing/co-host management/delete.
+- [ ] Co-host may publish after payment satisfied.
+- [ ] READY_TO_PUBLISH uses exactly §23.1.
+- [ ] Guests/registry/co-host/inspiration are not publish prerequisites.
+- [ ] Publish gate displays $49 one-time.
+- [ ] Post-publish allowed operations work; AI redesign does not.
 
-- [ ] External registry URL displayed as themed destination; click leaves to retailer.
-- [ ] No item-level sync claimed or implemented.
-- [ ] Native item added by URL with one add-time metadata fetch and manual entry fallback.
-- [ ] Reserve creates reservation before redirect; confirm on return via device token; 72h expiry; host override.
-- [ ] Purchaser identity hidden publicly, visible to host.
-- [ ] Cash fund card displays handles, suggested amounts, blurb; no payments processed.
-
-**Privacy and access**
-
-- [ ] Public/private supported; private requires event code.
-- [ ] Private gate shows hero (name, hosts, date) only; everything else locked; `noindex` set.
-- [ ] RSVP invite-only in either visibility mode; guest list never exposed.
-
-**Roles**
-
-- [ ] Owner invites co-host; co-host has every capability except publish, billing, co-host management, and delete/ownership, with no conditional cases.
-
-**Publishing**
-
-- [ ] Preview before publish; mocked gate displays $49; publish after simulated success.
-- [ ] Branded subdomain, copyable URL, QR code.
-- [ ] Operational edits allowed after publish; redesign disabled.
-- [ ] "Made with" footer present on guest site.
-
-**Mobile**
-
-- [ ] Entire host flow, dashboard, guest RSVP, and registry usable at ~390px.
-- [ ] No critical feature is desktop-only.
-- [ ] Visual test matrix (§11.8) runs in CI.
-
----
+### Responsive/accessibility
+- [ ] Complete owner/co-host and guest flows work around 390px.
+- [ ] Desktop is real responsive desktop, not phone-frame UI.
+- [ ] Preview on larger screens has Mobile/Desktop width toggle.
+- [ ] App chrome is light-only MVP.
+- [ ] Renderer and app meet WCAG 2.2 AA targets described in design docs.
 
 ## 32. Implementation Guardrails for Coding Agents
 
-1. Do not add features because they are conventional for event apps.
-2. Do not add a template gallery. Archetypes are internal.
-3. Do not build a token-level or chat-level AI editing loop. Redesign is concept-level.
-4. Do not build a version-history or rollback system. Retain concept specs in a gallery instead.
-5. Do not add browser extensions or bookmarklets.
-6. Do not add retailer scraping, sync, proxies, or anti-bot workarounds. One host-initiated metadata fetch at add time is allowed.
-7. Do not generate imagery. Site images are host uploads only.
-8. Do not require guest accounts.
-9. Do not optimize desktop before mobile.
-10. Do not expose low-level website-builder controls.
-11. Do not expose generation counters, credits, or backend limits to users.
-12. Do not use a model for validation, contrast, diversity enforcement, or ordinary edits.
-13. Do not generate arbitrary HTML or layouts. The model returns IDs and values against the enum schema.
-14. Do not build reservation nudges, click logs, or reconciliation.
-15. Do not build cancel/unpublish, refunds, or ownership transfer.
-16. Do keep the domain model generic enough for future event types.
-17. Do store structured AI output and render from it.
-18. Do enforce diversity in code with deterministic repair.
-19. Do make every archetype render without a photo.
-20. Do meet the latency targets.
-21. Do make the smallest implementation that satisfies the MVP requirements.
+1. Revision 5 and its companion docs are authoritative over older prototypes/specs.
+2. Do not add features because they are conventional for event apps.
+3. Landing page is the prompt; do not reinsert signup before the user can describe the event.
+4. Do not begin strong-model generation for anonymous users.
+5. Preserve prompt/inspiration through auth exactly.
+6. Do not add a template gallery.
+7. Do not send concept selection to a generic pre-publish dashboard.
+8. Creation Mode is the actual event with contextual collaborator controls.
+9. Do not turn readiness into a wizard.
+10. Do not count optional Guests/Registry as publish blockers.
+11. Do not build token/chat-level AI editing.
+12. Strong model returns six-field DesignIntent only.
+13. Do not add a model `overrides` block.
+14. Do not let the model choose section/card/button/border/ornamentation treatments.
+15. Do not generate arbitrary HTML/layout/CSS/SVG.
+16. Archetype bundle owns composition and renderer defaults.
+17. Archetype definitions are versioned.
+18. Persist DesignIntent + archetypeVersion + ResolvedDesignSpec.
+19. Render generated concept base from resolved spec, not current archetype defaults.
+20. Generated design data is immutable; renderer code bug/accessibility/responsive fixes are allowed.
+21. Use deterministic compiler repair, not model retries, for compatible repair cases.
+22. Motifs must declare roles/channels/opacity bounds/max placements.
+23. Archetypes expose motif slots.
+24. Dropped motifs must be logged; never silently ignore them.
+25. Archetypes must not consume raw palette roles as backgrounds/text/buttons.
+26. Use semantic palette compiler + contrast validation.
+27. Palette/manual palette overrides run through the same compiler.
+28. Typography must use curated pairing IDs and archetype compatibility.
+29. Prefer distinct typography categories in concept diversity when compatible.
+30. Accept mobile guest-surface structural convergence; do not damage usability to force layout novelty.
+31. Do not implement remaining archetypes until renderer proof gates pass.
+32. Do not add decorative/event site images in MVP.
+33. Native product thumbnail is content exception; never hotlink retailer image.
+34. Do not add retailer scraping/sync/proxies/anti-bot workarounds.
+35. Do not require guest accounts.
+36. Missing-phone CSV rows import as Needs phone.
+37. Rare no-phone RSVP requires explicit collaborator override.
+38. Do not build gift reservations/timers/public claim state.
+39. Do not bypass STOP with email.
+40. Do not add maps/geocoding solely for timezone.
+41. Do not expose backend generation/spend counters.
+42. Do not add cancel/unpublish/refund/ownership-transfer workflows.
+43. Co-host remains near-parity except billing/access-management/deletion ownership controls.
+44. Implement READY_TO_PUBLISH exactly from §23.1.
+45. Measure latency; do not hide unbounded waits.
+46. Make the smallest implementation that satisfies the product.
 
-If an implementation decision conflicts with the principle below, stop and reconsider:
+If a decision conflicts with this principle, stop:
 
 > **AI should remove decisions, not create more decisions.**
-
----
 
 ## 33. Deferred Product Opportunities
 
 Intentionally deferred; may become roadmap items:
 
-- AI-generated hero illustration/motif per concept (highest expected quality lever);
-- broader event types; custom domains;
-- invitations generated from the Event Identity, and invitation sending;
+- host-uploaded public-site imagery (hero/maternity/venue photos) with crop/position/edit controls;
+- AI-generated hero illustration/motif image per concept;
+- broader event types;
+- custom domains;
+- invitations generated from Event Identity and invitation sending;
 - matching print assets, welcome signs, menus, thank-you cards;
-- reservation SMS nudges, click logs, late confirmation, host collision view;
-- photo galleries; post-event thank-you workflows;
+- native gift reservation/hold behavior if real duplicate-purchase data justifies it;
+- SMS purchase nudges, richer click-log workflows, late confirmation/collision view;
+- photo galleries and post-event thank-you workflows;
 - deeper registry integrations, retailer partnerships, supported auto-sync;
 - group gifting, guest payments;
-- weighted diversity scoring;
-- pricing tiers, advanced AI credits, concierge design tier;
-- WhatsApp; international SMS;
+- weighted diversity scoring after real-output data exists;
+- pricing tiers, advanced AI generation limits/credits, concierge design tier;
+- WhatsApp/international SMS;
 - event planning/operations beyond details, RSVP, and registry.
 
 ---
 
 ## 34. Known Limitations (Accepted for MVP)
 
-- Duplicate native gifts are possible when a guest buys and never confirms within 72 hours.
-- Native purchases made without tapping Reserve & Buy are not tracked.
-- Guests with no phone or email receive no reminders; the host chases them manually.
-- Name lookup on a public event lets anyone who knows a guest's name RSVP for them unless SMS verification is required.
-- Most hosts upload no photo; concepts rely on typography, palette, archetype, and motifs for distinctness.
-- Inspiration links may fail to fetch; images are the reliable inspiration input.
-- Amazon native items will usually require manual title/image/price entry.
-- No refunds, cancellation toggle, or ownership transfer.
+- Native gift tracking is honor-system and can still duplicate.
+- External registries are not item-synchronized.
+- Rare no-phone RSVP path is intentionally weaker than OTP.
+- Missing-phone imported parties cannot RSVP until fixed/overridden.
+- Name lookup reveals minimal party-name existence to someone who can guess.
+- SMS can fail; STOP is not bypassed through email.
+- Published event visuals have no host photos/generated decorative imagery.
+- Native product thumbnail may be unavailable and must fall back gracefully.
+- Inspiration links may fail; uploaded screenshots are the reliable visual input.
+- Raw inspiration requires temporary private storage.
+- Amazon/native metadata may require manual entry.
+- Venue-text timezone inference may fall back to browser timezone.
+- Private event code is a convenience/privacy gate, not high-security auth.
+- AI latency/cost varies and must be measured.
+- No refunds/cancellation/ownership transfer.
 
----
+Renderer-specific accepted constraints:
+- Mobile guest information architecture may converge across archetypes.
+- The model has intentionally limited creative control; archetype bundles carry substantial design authorship.
+- Direct host design controls do not expose motifs/density/treatments.
+- Only the first three archetypes should be considered implementation-approved until the compiler refactor + constrained/light-tone tests pass.
+- Renderer bug fixes may alter pixels on historical events while preserving their immutable design data/intent.
 
 ## 35. Canonical MVP Flow
 
 ```text
-LANDING PAGE
+LANDING = PROMPT
     ↓
-CREATE ACCOUNT
+Describe event
++ optional private inspiration
     ↓
-"Tell us what you're planning"
+Create my event
     ↓
-Natural-language description + optional inspiration images/links
+Persist pre-auth draft
     ↓
-Generation starts immediately  ──┐
-    ↓                            │ (in parallel)
-Required follow-up questions  ◄──┘
+AUTH / SAVE
+(prompt + inspiration restored exactly)
     ↓
-Event Identity streamed
+Strong-model generation begins
+    ├── Event Identity
+    └── missing required details collected in parallel
     ↓
-3 concept previews (live renderer, scaled frame; diversity enforced in code)
+Timezone inferred/validated
     ↓
-Owner chooses 1  →  DesignSpec persisted  →  this IS the site
+Diversity planner assigns:
+  archetype
+  tone
+  typography category
     ↓
-Host adds/edits: details · guests/CSV · RSVP settings · registries · native items · cash fund
+3 DesignIntent calls in parallel
     ↓
-Lightweight direct edits
+Deterministic compiler per concept:
+  versioned archetype defaults
+  typography compatibility
+  motif slot assignment
+  semantic palette + contrast
+  compiler repairs/logging
     ↓
-OPTIONAL: "Try a different direction" (repeatable; gallery keeps every concept)
+Persist:
+  DesignIntent
+  archetypeVersion
+  ResolvedDesignSpec
     ↓
-Mobile-first preview
+3 live production-rendered concepts
+    ├── choose one
+    └── Try another direction
     ↓
-$49 gate (mocked, real price shown)
+FULL SITE REVEAL
+"Your event looks great. Let's make it real."
+    ├── Make it yours
+    └── Try another direction
     ↓
-PUBLISH → branded URL + QR code
+CREATION MODE
+actual event site is the workspace
+    ├── contextual Event Details edit
+    ├── RSVP setup
+    ├── Registry add/setup
+    ├── Guests → focused workspace
+    ├── Design → curated palette/type
+    ├── Preview
+    └── readiness pill
+          ├── Needed to publish
+          └── Recommended before sharing
     ↓
-Host distributes link externally
+Optional redesign before publish
+(prompt refinement → 3 new intents → compile → choose/keep/refine)
     ↓
-Guests: (private? hero visible, code for the rest) → details → RSVP by name lookup (+ SMS verify) → registry
+PREVIEW
+exact guest renderer
+mobile default / desktop toggle on larger screens
     ↓
-Host manages RSVPs, registry, SMS reminders/announcements from mobile admin
+READY_TO_PUBLISH validation
     ↓
-Event passes → thank-you state; registry stays accessible
+$49 one-time gate
+    ↓
+Owner satisfies payment
+    ↓
+Owner/co-host publishes
+    ↓
+URL + QR (+ separate code if private)
+    ↓
+Host distributes externally
+    ↓
+GUEST
+    ↓
+Private? finished hero → access code
+    ↓
+Details
+    ↓
+Name lookup
+    ├── phone-backed → SMS OTP → scoped session
+    ├── noPhoneAvailable → name fallback → scoped session
+    └── Needs phone → cannot expose RSVP
+    ↓
+Party RSVP → confirmation → magic link
+    ↓
+Registry
+    ├── external destination → retailer
+    ├── native gift → private click → retailer
+    │      └── optional return confirmation
+    └── cash fund → display only
+    ↓
+POST-PUBLISH MANAGEMENT MODE
+RSVPs · Guests · Messages · Registry · Share · Edit site
+    ↓
+Event passes
+    ↓
+Thank-you state; registry remains accessible
 ```
-
----
 
 ## 36. North Star
 
